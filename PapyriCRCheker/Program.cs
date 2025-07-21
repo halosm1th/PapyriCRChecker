@@ -92,7 +92,7 @@ public class PapyriCRChecker
             }
             else
             {
-                Console.WriteLine("Author surname not found.");
+                Console.WriteLine($"Author surname not found in file {filePath}.");
             }
         }
         catch (XmlException ex)
@@ -144,17 +144,17 @@ public class PapyriCRChecker
                     }
                     else
                     {
-                        Console.WriteLine("No numerical ID found at the end of the 'appearsIn' target URL.");
+                        Console.WriteLine($"No numerical ID found at the end of the 'appearsIn' in file {filePath}.");
                     }
                 }
                 else
                 {
-                    Console.WriteLine("Target attribute is empty or null for 'appearsIn' <ptr> element.");
+                    Console.WriteLine($"Target attribute is empty or null for 'appearsIn' <ptr> element  in file {filePath}.");
                 }
             }
             else
             {
-                Console.WriteLine("No <ptr> element found within <relatedItem type=\"appearsIn\">/bibl with a 'target' attribute (check namespace or XPath).");
+                Console.WriteLine($"No <ptr> element found within <relatedItem type=\"appearsIn\">/bibl with a 'target' attribute (check namespace or XPath)  in file {filePath}..");
             }
         }
         catch (XmlException ex)
@@ -198,7 +198,7 @@ public class PapyriCRChecker
             }
             else
             {
-                Console.WriteLine("Date not found.");
+                Console.WriteLine($"Date not found  in file {filePath}..");
             }
         }
         catch (XmlException ex)
@@ -243,7 +243,7 @@ public class PapyriCRChecker
             }
             else
             {
-                Console.WriteLine("Page ranges not found.");
+                Console.WriteLine($"Page ranges not found  in file {filePath}..");
             }
         }
         catch (XmlException ex)
@@ -318,13 +318,13 @@ public class PapyriCRChecker
                     }
                     else
                     {
-                        Console.WriteLine("Warning: Target attribute is empty or null for a <ptr> element within <relatedItem type=\"reviews\">.");
+                        Console.WriteLine($"Warning: Target attribute is empty or null for a <ptr> element within <relatedItem type=\"reviews\">  in file {filePath}..");
                     }
                 }
             }
             else
             {
-                Console.WriteLine("No <ptr> elements found within <relatedItem type=\"reviews\">/bibl with a 'target' attribute (check namespace or XPath).");
+                Console.WriteLine($"No <ptr> elements found within <relatedItem type=\"reviews\">/bibl with a 'target' attribute (check namespace or XPath)  in file {filePath}..");
             }
         }
         catch (XmlException ex)
