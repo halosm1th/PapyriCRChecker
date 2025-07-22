@@ -3,9 +3,25 @@
 using System.Formats.Asn1;
 using System.Text.RegularExpressions;
 using System.Xml;
+using BPtoPNDataCompiler;
 using DefaultNamespace;
 using PNCheckNewXMLs;
 
+public class MatchedReviews
+{
+    public MatchedReviews(XMLDataEntry reviewFrom, List<ParsedXMLReviewData> pnReviews, List<CRReviewData> crReviews)
+    {
+        ReviewFrom = reviewFrom;
+        PNReviews = pnReviews;
+        CRReviews = crReviews;
+    }
+
+    public XMLDataEntry ReviewFrom { get; set; }
+    public List<ParsedXMLReviewData> PNReviews { get; set; }
+    public List<CRReviewData> CRReviews { get; set; }
+
+    public bool SameNumberOfReviews => PNReviews.Count == CRReviews.Count;
+}
 
 public class PapyriCRChecker
 {
@@ -19,7 +35,143 @@ public class PapyriCRChecker
         filesFromBiblio  = fileGatherer.GatherEntries();
         var reviewFiles = GetReviewFiles(filesFromBiblio);
         var parsedXmlReviews  = ParseXMLFiles(reviewFiles);
+
+        var CRFiles = GetCRFiles(filesFromBiblio);
+        var crParser = new CRReviewParser(logger,filesFromBiblio,Directory.GetCurrentDirectory());
+        var lastPN = GetLastPN(-1, logger, filesFromBiblio);
+        var parsedCRReviews = crParser.ParseReviews(CRFiles, ref lastPN);
+        
+        var matchedReviews = MatchReviews(parsedXmlReviews, parsedCRReviews, filesFromBiblio);
+        foreach (var match in matchedReviews)
+        {
+            Console.WriteLine($"Match: {match.ReviewFrom.PNFileName} has {match.CRReviews.Count} CR reviews and {match.PNReviews.Count} PN reviews. Are they equal: {match.SameNumberOfReviews}");
+        }
     }
+
+    private static List<MatchedReviews> MatchReviews(List<ParsedXMLReviewData> parsedXmlReviews, 
+        List<CRReviewData> parsedCrReviews, List<XMLDataEntry> biblioFiles)
+    {
+        var reviews = new List<MatchedReviews>();
+
+        foreach (var entry in biblioFiles)
+        {
+            var xmlMatches
+                = parsedXmlReviews.Where(x
+                    => x.Source.PNNumber == entry.PNNumber).ToList();
+            var crMatches
+                = parsedCrReviews.Where(x
+                    => x.Source.PNNumber == entry.PNNumber).ToList();
+
+            if (xmlMatches.Count > 0 || crMatches.Count > 0)
+            {
+                var match = new MatchedReviews(entry, xmlMatches, crMatches);
+                reviews.Add(match);
+            }
+        }
+        
+        return reviews;
+    }
+
+
+    private static int GetLastPN(int LastPN, Logger logger, List<XMLDataEntry> xmlEntries)
+    {
+        if (LastPN == -1)
+        {
+            var lastPNAsString = GetLastPNText(xmlEntries);
+
+            if (Int32.TryParse(lastPNAsString, out LastPN))
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"Converted PN to string: {lastPNAsString}.\n");
+                Console.ResetColor();
+                logger.Log($"Converted PN to string: {lastPNAsString}.\n");
+                return LastPN;
+            }
+            else
+            {
+                Console.WriteLine($"There was an error parsing the last PN number! {lastPNAsString}.\nExiting");
+                logger.Log($"There was an error parsing the last PN Number! {lastPNAsString}");
+                return -1;
+            }
+        }
+
+        return LastPN;
+    }
+    
+    private static string? GetLastPNText(List<XMLDataEntry> XmlEntries)
+    {
+        var entries = XmlEntries.OrderBy(x => x.PNNumber);
+
+        var largestPN = 0;
+        foreach (var entry in entries)
+        {
+            if (Int32.TryParse(entry.PNNumber, out int numb))
+            {
+                if (numb > largestPN) largestPN = numb;
+            }
+        }
+
+        return Convert.ToString(largestPN);
+    }
+    
+    private static List<XMLDataEntry> GetCRFiles(List<XMLDataEntry> biblioFiles)
+    {
+        var crFiles = new List<XMLDataEntry>();
+        
+        
+        var reviewFiles = new List<XMLDataEntry>();
+
+        foreach (var file in biblioFiles)
+        {
+            if (HasCrSegNode(file.PNFileName))
+            {
+                reviewFiles.Add(file);
+            }
+        }
+    
+        return reviewFiles;
+        
+        return crFiles;
+    }
+    /// <summary>
+    /// Determines if an XML file contains a <seg> node with subtype="cr".
+    /// </summary>
+    /// <param name="filePath">The path to the XML file.</param>
+    /// <returns>True if a <seg subtype="cr"> node is found, false otherwise.</returns>
+    public static bool HasCrSegNode(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            Console.WriteLine($"Error: File not found at '{filePath}'");
+            return false;
+        }
+
+        XmlDocument xmlDoc = new XmlDocument();
+        try
+        {
+            xmlDoc.Load(filePath);
+            // Create an XmlNamespaceManager for TEI namespace
+            XmlNamespaceManager nsmgr = new XmlNamespaceManager(xmlDoc.NameTable);
+            nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
+
+            // Select the <seg> node with subtype="cr"
+            XmlNode crSegNode = xmlDoc.SelectSingleNode("//tei:seg[@subtype='cr']", nsmgr);
+
+            // If the node is found, it means the file has a <seg subtype="cr"> element.
+            return crSegNode != null;
+        }
+        catch (XmlException ex)
+        {
+            Console.WriteLine($"Error parsing XML file '{filePath}': {ex.Message}");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred while processing '{filePath}': {ex.Message}");
+            return false;
+        }
+    }
+
 
     private static List<ParsedXMLReviewData> ParseXMLFiles(List<XMLDataEntry> reviewFiles)
     {
@@ -34,7 +186,7 @@ public class PapyriCRChecker
             var date = ExtractDate(reviewFile.PNFileName);
             
             var parsedData = new ParsedXMLReviewData(reviewFilePath,
-                appearsInPath,authorSurname, pages,date);
+                appearsInPath,authorSurname, pages,date, reviewFile);
             
             parsedXmlReviews.Add(parsedData);
         }
@@ -55,8 +207,10 @@ public class PapyriCRChecker
         var returnPaths = new List<string>();
         foreach (var pnEntryNumber in reviewNumbesrFromBiblio)
         {
-            var entry = filesFromBiblio.First(x => x.PNNumber == pnEntryNumber);
-            returnPaths.Add(entry.PNFileName);
+            if(filesFromBiblio.Any(x => x.PNNumber == pnEntryNumber)){
+                var entry = filesFromBiblio.First(x => x.PNNumber == pnEntryNumber);
+                returnPaths.Add(entry.PNFileName);
+            }
         }
         
         return returnPaths;
@@ -400,131 +554,5 @@ public class PapyriCRChecker
 
         // If any of the conditions are not met, return false.
         return false;
-    }
-}
-
-public class XMLReviewInfo
-{
-    public XMLReviewInfo(string reviewer, string reviewedWhere, string reviewDate, string reviewPages, string itemPtr)
-    {
-        Reviewer = reviewer;
-        ReviewedWhere = reviewedWhere;
-        ReviewDate = reviewDate;
-        ReviewPages = reviewPages;
-        ItemPtr = itemPtr;
-    }
-    
-    public string BPNumber { get; set; }
-    public string Reviewer { get; set; }
-    public string ReviewedWhere { get; set; }
-    public string ReviewDate { get; set; }
-    public string ReviewPages { get; set; }
-    public string ItemPtr { get; set; }
-}
-
-public class ParsedXMLReviewData
-{
-    public ParsedXMLReviewData(List<string> reviewTargetPns, string appearsInTargetPn, string authorsSurname, string pageRange, string date)
-    {
-        AppearsInTargetPN = appearsInTargetPn;
-        AuthorsSurname = authorsSurname;
-        PageRange = pageRange;
-        Date = date;
-
-        ReviewTargetPN = GetDataFromReviewTargets(reviewTargetPns);
-    }
-    
-    /// <summary>
-    /// Extracts the journal name from the <seg subtype="cr"> element's text.
-    /// The journal name is expected to be after the author's name and before the year.
-    /// Example: "C.R. par Ulrich Wilcken, ArchPF 11 (1933) pp. 132-133." -> "ArchPF"
-    /// </summary>
-    /// <param name="pnNumber">The path to the XML file.</param>
-    /// <returns>The extracted journal name as a string, or null if not found or an error occurs.</returns>
-    public static string ExtractJournalNameFromCrSeg(string pnNumber)
-    {
-
-        var filePath = pnNumber;
-        
-        if (!File.Exists(filePath))
-        {
-            Console.WriteLine($"Error: File not found at '{filePath}'");
-            return null;
-        }
-
-        XmlDocument xmlDoc = new XmlDocument();
-        try
-        {
-            xmlDoc.Load(filePath);
-            // Create an XmlNamespaceManager for TEI namespace
-            XmlNamespaceManager nsmgr = new XmlNamespaceManager(xmlDoc.NameTable);
-            nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
-
-            // Select the <seg> node with subtype="cr"
-            XmlNode crSegNode = xmlDoc.SelectSingleNode("//tei:seg[@subtype='cr']", nsmgr);
-
-            if (crSegNode != null)
-            {
-                string segText = crSegNode.InnerText;
-                // Regex to capture the journal name.
-                // It looks for a sequence of letters/numbers/dots/hyphens (journal names can vary)
-                // that comes after a comma and a space (typically after author),
-                // and before a number (issue/year).
-                // This pattern is designed to be flexible but might need tuning for edge cases.
-                // Example: "Wilcken, ArchPF 11 (1933)" -> captures "ArchPF"
-                // Example: "Cipolla, Sileno 38 (2012)" -> captures "Sileno"
-                Match match = Regex.Match(segText, @",\s*([A-Za-z0-9\.\-]+)\s+\d+");
-
-                if (match.Success && match.Groups.Count > 1)
-                {
-                    return match.Groups[1].Value;
-                }
-                else
-                {
-                    Console.WriteLine($"Journal name pattern not found in CR segment: '{segText}'");
-                }
-            }
-            else
-            {
-                Console.WriteLine("CR segment (<seg subtype=\"cr\">) not found.");
-            }
-        }
-        catch (XmlException ex)
-        {
-            Console.WriteLine($"Error parsing XML file '{pnNumber}': {ex.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred while processing '{pnNumber}': {ex.Message}");
-        }
-        return null;
-    }
-
-    private List<XMLReviewInfo>? GetDataFromReviewTargets(List<string> reviewTargetPns)
-    {
-        var targets = new List<XMLReviewInfo>();
-        foreach (var reviewTarget in reviewTargetPns)
-        {
-            var reviewer = PapyriCRChecker.ExtractAuthorSurname(reviewTarget);
-            var pages = PapyriCRChecker.ExtractPageRanges(reviewTarget);
-            var date = PapyriCRChecker.ExtractDate(reviewTarget);
-            var location = ExtractJournalNameFromCrSeg(reviewTarget); 
-            var review = new XMLReviewInfo(reviewer, location, date, pages, reviewTarget);
-            targets.Add(review);
-        }
-        
-        return targets;
-        
-    }
-
-    public List<XMLReviewInfo> ReviewTargetPN { get; set; }
-    public string AppearsInTargetPN { get; set; }
-    public string AuthorsSurname { get; set; }
-    public string PageRange { get; set; }
-    public string Date { get; set; }
-
-    public override string ToString()
-    {
-        return $"{AuthorsSurname} {PageRange} {Date} (Reviewed by: {ReviewTargetPN}, in: {AppearsInTargetPN}";
     }
 }

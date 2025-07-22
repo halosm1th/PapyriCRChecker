@@ -1,0 +1,132 @@
+﻿using System.Text.RegularExpressions;
+using DefaultNamespace;
+
+namespace BPtoPNDataCompiler;
+
+public class CRReviewData
+{
+    public CRReviewData(XMLDataEntry originalEntry, string pageRange, string year, string cr, string idNumber, string startingPathToCsVv,
+        string articleReviewing, Logger _logger)
+    {
+        Source = originalEntry;
+        
+        //Thomas Schmidt, MusHelv 68 (2011) pp. 232-233.
+        //Lajos Berkes, Gnomon 85 (2013) pp. 464-466.
+        IDNumber = idNumber;
+        startingPath = startingPathToCsVv;
+        CRData = cr;
+
+        var name = cr.Split(",")[0];
+        var nameParts = name.Split(" ");
+        Forename = nameParts[0];
+        var lastName = "";
+        for (int i = 1; i < nameParts.Length; i++)
+        {
+            lastName += nameParts[i] + " ";
+        }
+
+        Lastname = lastName.Remove(lastName.Length - 1, 1);
+        Date = year;
+        var pages = pageRange.Split("-");
+        PageStart = pages[0];
+        if(pages.Length > 1)
+            PageEnd = pages[1];
+
+        var issueRegex = new Regex(@" \d+ ");
+        var issueMatch = issueRegex.Match(cr);
+        Issue = issueMatch.Value;
+
+        var journal = cr.Split(",")[^1];
+        journal = journal.Split(year)[0].Replace("(", "");
+        journal = journal.Replace(Issue, "").Trim();
+
+        JournalID = GetJournalID(journal);
+
+        if (journal == "-1")
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"The reviews for {articleReviewing} may need to be created manually");
+            Console.ResetColor();
+            logger.Log($"The reviews for {articleReviewing} may need to be created manually");
+        }
+
+        AppearsInID = articleReviewing;
+        logger = _logger;
+    }
+
+    private Logger logger { get; }
+
+    private string startingPath { get; set; }
+    
+    public XMLDataEntry Source { get; }
+    public string IDNumber { get; } = "[NONE]";
+    public string Forename { get; } = "[NONE]";
+    public string Lastname { get; } = "[NONE]";
+    public string Issue { get; } = "[NONE]";
+    public string JournalID { get; } = "[NONE]";
+    public string AppearsInID { get; } = "[NONE]";
+    public string CRData { get; } = "[NONE]";
+    public string Date { get; } = "[NONE]";
+    public string PageStart { get; } = "[NONE]";
+    public string PageEnd { get; } = "[NONE]";
+
+    private string GetJournalID(string journal)
+    {
+        try
+        {
+            var file = File.ReadAllLines(startingPath + "/PN_Journal_IDs.csv");
+            var listOFJournals = new Dictionary<string, string>();
+            foreach (var line in file)
+            {
+                var text = line.Split(',');
+                if (!listOFJournals.ContainsKey(text[0])) listOFJournals.Add(text[0], text[1]);
+            }
+
+            var id = listOFJournals[journal];
+
+            return id;
+        }
+        catch (Exception e)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"Could not find a journal to match {journal}. Threw error: {e}");
+            logger.LogProcessingInfo($"Could not find a journal to match {journal}. Threw error: {e}");
+            Console.ResetColor();
+            return "-1";
+        }
+
+        throw new NotImplementedException();
+    }
+
+    public override string ToString()
+    {
+        return $"""
+                <?xml version="1.0" encoding="UTF-8"?>
+                <bibl xmlns="http://www.tei-c.org/ns/1.0" xml:id="b{IDNumber}" type="review">
+                  <author>
+                      <forename>{Forename}</forename>
+                      <surname>{Lastname}</surname>
+                   </author>
+                   <date>{Date}</date>
+                  <biblScope type="pp" from="{PageStart}" to="{PageEnd}">{PageStart}-{PageEnd}</biblScope>
+                  <relatedItem type="appearsIn">
+                      <bibl>
+                         <ptr target="https://papyri.info/biblio/{JournalID}"/>
+                         <!--ignore - start, i.e. SoSOL users may not edit this-->
+                         <!--ignore - stop-->
+                      </bibl>
+                  </relatedItem>
+                  <biblScope type="issue">{Issue}</biblScope>
+                  <relatedItem type="reviews" n="1">
+                      <bibl>
+                         <ptr target="https://papyri.info/biblio/{AppearsInID}"/>
+                         <!--ignore - start, i.e. SoSOL users may not edit this-->
+                         <!--ignore - stop-->
+                      </bibl>
+                  </relatedItem>
+                  <idno type="pi">{IDNumber}</idno>
+                  <seg type="original" subtype="cr" resp="#BP">{CRData}</seg>
+                </bibl>
+                """;
+    }
+}

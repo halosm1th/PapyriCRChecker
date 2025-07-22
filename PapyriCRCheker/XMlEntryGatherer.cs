@@ -120,9 +120,6 @@ public class XMLEntryGatherer
         {
             foreach (var folder in Directory.GetDirectories(BiblioPath))
             {
-                logger.LogProcessingInfo($"Adding XML files in {folder}");
-                logger.Log("Adding XMl Files in {folder}");
-                Console.WriteLine($"adding files in : {folder}");
                 foreach (var entry in GetEntriesFromFolder(folder))
                 {
                     //logger.Log($"Adding {entry.Title} from {folder} to entries");
