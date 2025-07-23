@@ -1,9 +1,13 @@
 ﻿using System.Text.RegularExpressions;
 using System.Xml;
+using System.Xml.Linq;
 using DefaultNamespace;
 
 public class ParsedXMLReviewData
 {
+    
+    private static readonly XNamespace teiNs = "http://www.tei-c.org/ns/1.0";
+    
     public ParsedXMLReviewData(List<string> reviewTargetPns, string appearsInTargetPn, 
         string authorsSurname, string pageRange, string date,
         XMLDataEntry source)
@@ -17,6 +21,30 @@ public class ParsedXMLReviewData
         Source = source;
     }
     
+    private static XDocument LoadXmlDocument(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            Console.WriteLine($"Error: File not found at '{filePath}'");
+            return null;
+        }
+        try
+        {
+            // XDocument.Load automatically handles namespaces when querying with XName (namespace + local name)
+            return XDocument.Load(filePath);
+        }
+        catch (XmlException ex)
+        {
+            Console.WriteLine($"Error parsing XML file '{filePath}': {ex.Message}");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred while loading '{filePath}': {ex.Message}");
+            return null;
+        }
+    }
+    
     /// <summary>
     /// Extracts the journal name from the <seg subtype="cr"> element's text.
     /// The journal name is expected to be after the author's name and before the year.
@@ -24,65 +52,73 @@ public class ParsedXMLReviewData
     /// </summary>
     /// <param name="pnNumber">The path to the XML file.</param>
     /// <returns>The extracted journal name as a string, or null if not found or an error occurs.</returns>
-    public static string ExtractJournalNameFromCrSeg(string pnNumber)
+     public static string ExtractJournalNameFromCrSeg(string filePath)
     {
-
-        var filePath = pnNumber;
-        
-        if (!File.Exists(filePath))
+        XDocument xmlDoc = LoadXmlDocument(filePath);
+        if (xmlDoc == null)
         {
-            Console.WriteLine($"Error: File not found at '{filePath}'");
             return null;
         }
 
-        XmlDocument xmlDoc = new XmlDocument();
-        try
+        // Find the text content of the <seg subtype="cr"> element
+        string segText = (string)xmlDoc.Descendants(teiNs + "seg")
+                                       .Where(s => (string)s.Attribute("subtype") == "cr")
+                                       .FirstOrDefault();
+
+        if (!string.IsNullOrEmpty(segText))
         {
-            xmlDoc.Load(filePath);
-            // Create an XmlNamespaceManager for TEI namespace
-            XmlNamespaceManager nsmgr = new XmlNamespaceManager(xmlDoc.NameTable);
-            nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
+            // Step 1: Remove "C.R. par [Author Name]," prefix
+            // This regex captures everything from the start up to the comma after the author's name.
+            string cleanedSegText = Regex.Replace(segText, @"^C\.R\.\s*par\s*[^,]+,\s*", "", RegexOptions.IgnoreCase).Trim();
+            cleanedSegText = cleanedSegText.Split("(")[0].Trim();
 
-            // Select the <seg> node with subtype="cr"
-            XmlNode crSegNode = xmlDoc.SelectSingleNode("//tei:seg[@subtype='cr']", nsmgr);
-
-            if (crSegNode != null)
+            // Step 2: Handle " = JournalName" pattern (e.g., "Raccolta ... = Aegyptus")
+            string journalPart = cleanedSegText;
+            int equalsIndex = journalPart.IndexOf(" = ");
+            if (journalPart.Contains(" = "))
             {
-                string segText = crSegNode.InnerText;
-                // Regex to capture the journal name.
-                // It looks for a sequence of letters/numbers/dots/hyphens (journal names can vary)
-                // that comes after a comma and a space (typically after author),
-                // and before a number (issue/year).
-                // This pattern is designed to be flexible but might need tuning for edge cases.
-                // Example: "Wilcken, ArchPF 11 (1933)" -> captures "ArchPF"
-                // Example: "Cipolla, Sileno 38 (2012)" -> captures "Sileno"
-                Match match = Regex.Match(segText, @",\s*([A-Za-z0-9\.\-]+)\s+\d+");
-                var url = Regex.Match(segText, @"<\shttp://bmcr.brynmwr.edu/\d{4}/\d{4}-\d{2}-\d{1,6}.html\s>");
+                // If " = " is found, the actual journal name starts after it.
+                journalPart = journalPart.Split(" = ")[1];
+            }
 
-                if (match.Success && match.Groups.Count > 1)
+            // Step 3: Find the end of the journal name using a regex that matches the start of the following pattern
+            // This regex will find the first occurrence of a delimiter.
+            // (?: # Non-capturing group for alternatives
+            //   \s+\d+ # Space and digits (e.g., " 57")
+            //   | \s*<[^>]+> # Space and URL (e.g., " <http://...>")
+            //   | ,\s*\d+ # Comma, space, digits (e.g., ", 57")
+            //   | \s*\[[^\]]+\] # Space and bracketed text (e.g., " [Lisboa]")
+            //   | \s*p\. # Space and "p." (e.g., " p. 147")
+            //   | \s*\d+\s*\( # Space, digits, space, opening parenthesis (e.g., " 6 (")
+            //   | ,\s*[IVXLCDM]+\s*\( # Comma, space, Roman numerals, space, opening parenthesis (e.g., " N.S., II (")
+            //   | ,\s*[IVXLCDM]+ # Comma, space, Roman numerals (e.g., " N.S., II")
+            // )
+            string patternEndJournal = @"(?:\s+\d+|\s*<[^>]+>|,\s*\d+|\s*\[[^\]]+\]|\s*p\.|\s*\d+\s*\(|,\s*[IVXLCDM]+\s*\(|,\s*[IVXLCDM]+)";
+            Match match = Regex.Match(journalPart, patternEndJournal);
+
+            if (match.Success)
+            {
+                // The journal name is the substring from the beginning of journalPart up to the start of the match.
+                string journalName = journalPart.Substring(0, match.Index).TrimEnd(' ', ',');
+                if (!string.IsNullOrEmpty(journalName))
                 {
-                    return match.Groups[1].Value;
-                } else if (url.Success && match.Groups.Count > 1)
-                {
-                    return match.Groups[1].Value;
-                }
-                else
-                {
-                    Console.WriteLine($"Journal name pattern not found in CR segment: '{segText}'");
+                    return journalName;
                 }
             }
-            else
+
+            // Fallback: If no specific pattern is found, try to capture everything until the first number or URL-like structure
+            // This is for very unusual patterns where the journal name might just end abruptly before a number or URL.
+            Match fallbackMatch = Regex.Match(journalPart, @"^([\p{L}\p{N}\s\.\-:]+?)(?=\s*\d+|\s*<|$)");
+            if (fallbackMatch.Success && fallbackMatch.Groups.Count > 1)
             {
-                Console.WriteLine("CR segment (<seg subtype=\"cr\">) not found.");
+                return fallbackMatch.Groups[1].Value.TrimEnd(' ', ',');
             }
+
+            Console.WriteLine($"Journal name pattern not found in CR segment after processing: '{segText}' (processed to: '{journalPart}')");
         }
-        catch (XmlException ex)
+        else
         {
-            Console.WriteLine($"Error parsing XML file '{pnNumber}': {ex.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred while processing '{pnNumber}': {ex.Message}");
+            Console.WriteLine("CR segment (<seg subtype=\"cr\">) not found.");
         }
         return null;
     }

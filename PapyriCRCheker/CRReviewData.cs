@@ -27,10 +27,29 @@ public class CRReviewData
 
         Lastname = lastName.Remove(lastName.Length - 1, 1);
         Date = year;
-        var pages = pageRange.Split("-");
-        PageStart = pages[0];
-        if(pages.Length > 1)
-            PageEnd = pages[1];
+        var pages = new string[0];
+
+        if (pageRange.Contains("-"))
+        {
+            pages= pageRange.Split("-");
+            PageStart = pages[0];
+            if (pages.Length > 1)
+                PageEnd = pages[1];
+            else
+            {
+                Console.WriteLine(CRData);
+            }
+        }else if (pageRange.Contains("p. "))
+        {
+            pages = pageRange.Split("p.");
+            PageStart = pages[1];
+            if (pages.Length > 1)
+                PageEnd = pages[2];
+            else
+            {
+                PageEnd = "";
+            }
+        }
 
         var issueRegex = new Regex(@" \d+ ");
         var issueMatch = issueRegex.Match(cr);
@@ -38,7 +57,8 @@ public class CRReviewData
 
         var journal = cr.Split(",")[^1];
         journal = journal.Split(year)[0].Replace("(", "");
-        journal = journal.Replace(Issue, "").Trim();
+        if(!string.IsNullOrEmpty(Issue))  journal = journal.Replace(Issue, "").Trim();
+        if(journal.Contains(":")) journal = journal.Replace(":", "");
 
         JournalID = GetJournalID(journal);
 
@@ -74,6 +94,12 @@ public class CRReviewData
     {
         try
         {
+            if (journal.Contains("-") || journal.Contains("p."))
+                Console.WriteLine($"There was an error parsing the journal for: {CRData}");
+            else
+            {
+            
+
             var file = File.ReadAllLines(startingPath + "/PN_Journal_IDs.csv");
             var listOFJournals = new Dictionary<string, string>();
             foreach (var line in file)
@@ -86,6 +112,9 @@ public class CRReviewData
 
             return id;
         }
+
+        return "-1";
+    }
         catch (Exception e)
         {
             Console.ForegroundColor = ConsoleColor.Red;

@@ -129,7 +129,15 @@ public class CRReviewParser
                 var year = yearRegex.Match(match);
                 var pagesWithPP = pageWithPPRegex.Match(match);
                 var pages = pageRegex.Match(pagesWithPP.Value);
-                pageRanges.Add((year.Value, pages.Value, match, cr));
+
+                if (pagesWithPP.Success)
+                {
+                    pageRanges.Add((year.Value, pagesWithPP.Value, match, cr));
+                    
+                }else if (pages.Success)
+                {
+                    pageRanges.Add((year.Value, pages.Value, match, cr));
+                }
             }
         }
 

@@ -238,11 +238,16 @@ public class PapyriCRChecker
             nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
 
             // Select the <surname> node directly under <author> using the namespace prefix
-            XmlNode surnameNode = xmlDoc.SelectSingleNode("//tei:author/tei:surname", nsmgr);
+            XmlNode authorSurnameNode = xmlDoc.SelectSingleNode("//tei:author/tei:surname", nsmgr);
+            XmlNode editorSurnameNode = xmlDoc.SelectSingleNode("//tei:editor/tei:surname", nsmgr);
 
-            if (surnameNode != null)
+            if (authorSurnameNode != null)
             {
-                return surnameNode.InnerText;
+                return authorSurnameNode.InnerText;
+            }
+            if (editorSurnameNode != null)
+            {
+                return editorSurnameNode.InnerText;
             }
             else
             {
@@ -390,14 +395,24 @@ public class PapyriCRChecker
 
             // Select the <biblScope> node with type="pp" using the namespace prefix
             XmlNode pageRangeNode = xmlDoc.SelectSingleNode("//tei:biblScope[@type='pp']", nsmgr);
+            XmlNode colRangeNode = xmlDoc.SelectSingleNode("//tei:biblScope[@type='col']", nsmgr);
+            XmlNode pageCount = xmlDoc.SelectSingleNode("//tei:note[@type='pageCount']", nsmgr);
 
             if (pageRangeNode != null)
             {
                 return pageRangeNode.InnerText;
+            }else if (pageCount != null)
+            {
+                return pageCount.InnerText;
+            }
+
+            if (colRangeNode != null)
+            {
+                return colRangeNode.InnerText.Replace("coll. ", "");
             }
             else
             {
-                Console.WriteLine($"Page ranges not found  in file {filePath}..");
+                Console.WriteLine($"Page ranges not found  in file {filePath}.");
             }
         }
         catch (XmlException ex)
