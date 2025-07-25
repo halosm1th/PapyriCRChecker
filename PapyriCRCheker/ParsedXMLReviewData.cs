@@ -142,9 +142,9 @@ public class ParsedXMLReviewData
 
     public List<XMLReviewInfo> ReviewTargetPN { get; set; }
     public string AppearsInTargetPN { get; set; }
-    public string AuthorsSurname { get; set; }
-    public string PageRange { get; set; }
-    public string Date { get; set; }
+    public string? AuthorsSurname { get; set; }
+    public string? PageRange { get; set; }
+    public string? Date { get; set; }
     public XMLDataEntry Source { get; set; }
 
     public override string ToString()

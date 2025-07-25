@@ -9,7 +9,7 @@ public class CRReviewData
         string articleReviewing, Logger _logger)
     {
         Source = originalEntry;
-        
+        logger = _logger;
         //Thomas Schmidt, MusHelv 68 (2011) pp. 232-233.
         //Lajos Berkes, Gnomon 85 (2013) pp. 464-466.
         IDNumber = idNumber;
@@ -25,7 +25,8 @@ public class CRReviewData
             lastName += nameParts[i] + " ";
         }
 
-        Lastname = lastName.Remove(lastName.Length - 1, 1);
+        if (lastName.Length > 0) Lastname = lastName.Remove(lastName.Length - 1, 1);
+        else Lastname = "ERROR WITH LAST NAME";
         Date = year;
         var pages = new string[0];
 
@@ -55,12 +56,15 @@ public class CRReviewData
         var issueMatch = issueRegex.Match(cr);
         Issue = issueMatch.Value;
 
-        var journal = cr.Split(",")[^1];
+
+        var prePageRange = cr.Split(pageRange)[0];
+        var journal = prePageRange.Split(",")[^1];
         journal = journal.Split(year)[0].Replace("(", "");
         if(!string.IsNullOrEmpty(Issue))  journal = journal.Replace(Issue, "").Trim();
         if(journal.Contains(":")) journal = journal.Replace(":", "");
-
+        
         JournalID = GetJournalID(journal);
+            
 
         if (journal == "-1")
         {
@@ -71,7 +75,6 @@ public class CRReviewData
         }
 
         AppearsInID = articleReviewing;
-        logger = _logger;
     }
 
     private Logger logger { get; }
@@ -89,6 +92,28 @@ public class CRReviewData
     public string Date { get; } = "[NONE]";
     public string PageStart { get; } = "[NONE]";
     public string PageEnd { get; } = "[NONE]";
+    
+    public string PageRange  => $"{PageStart.Replace("pp. ", "").Replace(" ", "")}-{PageEnd}";
+    
+    private static Dictionary<string, string> _journals { get; set; }= null;
+
+    private Dictionary<string, string> GetJounrals()
+    {
+        if (_journals == null || _journals.Count == 0)
+        {
+            var file = File.ReadAllLines(startingPath + "/PN_Journal_IDs.csv");
+            var listOFJournals = new Dictionary<string, string>();
+            foreach (var line in file)
+            {
+                var text = line.Split(',');
+                if (!listOFJournals.ContainsKey(text[0])) listOFJournals.Add(text[0], text[1]);
+            }
+            
+            _journals = listOFJournals;
+        }
+        
+        return _journals;
+    }
 
     private string GetJournalID(string journal)
     {
@@ -98,20 +123,24 @@ public class CRReviewData
                 Console.WriteLine($"There was an error parsing the journal for: {CRData}");
             else
             {
-            
+                var listOFJournals = GetJounrals();
 
-            var file = File.ReadAllLines(startingPath + "/PN_Journal_IDs.csv");
-            var listOFJournals = new Dictionary<string, string>();
-            foreach (var line in file)
-            {
-                var text = line.Split(',');
-                if (!listOFJournals.ContainsKey(text[0])) listOFJournals.Add(text[0], text[1]);
+                try
+                {
+                    var id = listOFJournals[journal];
+
+                    return id;
+                }
+                catch (Exception e)
+                {
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine($"had an error parsing journal: {journal}: {e}");
+                    Console.ResetColor();
+                    logger?.LogError($"had an error parsing journal: {journal}", e);
+                    return "-1";
+                }
+                
             }
-
-            var id = listOFJournals[journal];
-
-            return id;
-        }
 
         return "-1";
     }
@@ -119,7 +148,7 @@ public class CRReviewData
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"Could not find a journal to match {journal}. Threw error: {e}");
-            logger.LogProcessingInfo($"Could not find a journal to match {journal}. Threw error: {e}");
+            logger?.LogProcessingInfo($"Could not find a journal to match {journal}. Threw error: {e}");
             Console.ResetColor();
             return "-1";
         }

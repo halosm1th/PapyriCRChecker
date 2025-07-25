@@ -1,10 +1,13 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
+using System.Drawing;
 using System.Formats.Asn1;
 using System.Text.RegularExpressions;
 using System.Xml;
 using BPtoPNDataCompiler;
 using DefaultNamespace;
+using OfficeOpenXml;
+using OfficeOpenXml.Style;
 using PNCheckNewXMLs;
 
 public class MatchedReviews
@@ -28,6 +31,8 @@ public class PapyriCRChecker
     private static List<XMLDataEntry> filesFromBiblio;
     public static void Main(string[] args)
     {
+        ExcelPackage.License.SetNonCommercialPersonal("Thomas");
+        
         var logger = new Logger();
         var directory = FindBiblioDirectory(logger);
 
@@ -38,13 +43,178 @@ public class PapyriCRChecker
 
         var CRFiles = GetCRFiles(filesFromBiblio);
         var crParser = new CRReviewParser(logger,filesFromBiblio,Directory.GetCurrentDirectory());
-        var lastPN = GetLastPN(-1, logger, filesFromBiblio);
+        var lastPN = 0; //GetLastPN(-1, logger, filesFromBiblio);
         var parsedCRReviews = crParser.ParseReviews(CRFiles, ref lastPN);
         
         var matchedReviews = MatchReviews(parsedXmlReviews, parsedCRReviews, filesFromBiblio);
+        SaveMatchResultsInSpreadsheet(matchedReviews);
+
         foreach (var match in matchedReviews)
         {
-            Console.WriteLine($"Match: {match.ReviewFrom.PNFileName} has {match.CRReviews.Count} CR reviews and {match.PNReviews.Count} PN reviews. Are they equal: {match.SameNumberOfReviews}");
+            var newResults = CompareReviews(match);
+        }
+    }
+
+    private static List<(List<XMLDataEntry> ReviewInPNNotINBP, List<CRReviewData> ReviewInBPNotINPN)> 
+        CompareReviews(MatchedReviews match)
+    {
+        var results = new List<(List<XMLDataEntry> ReviewInPNNotINBP, List<CRReviewData> ReviewInBPNotINPN)>();
+
+        var BPNotMatched = match.CRReviews;
+        var PNNotMatched = match.PNReviews;
+        
+        var reviewCount = PNNotMatched.Count;
+
+        for (int i = 0; i < reviewCount; i++)
+        {
+            if (BPNotMatched.Count == 0 || PNNotMatched.Count == 0) break;
+
+            var current = PNNotMatched[i];
+            if (AnyMatch(current, BPNotMatched))
+            {
+                var matchedReview = GetMatch(current, BPNotMatched);
+                if (matchedReview != null)
+                {
+                    CheckReviewFileHAsCR(current, matchedReview);
+                    BPNotMatched.Remove(matchedReview);
+                    PNNotMatched.Remove(current);
+                    Console.WriteLine("------------------------------------------------------------------------");
+                    Console.WriteLine($"{current.Source.PNNumber}-{i}-{current.AppearsInTargetPN} | PN | BP | Match");
+                    Console.WriteLine($"surname | {current.AuthorsSurname ?? "NOT FOUND"} | {matchedReview.Lastname} | {current.AuthorsSurname?.Equals(matchedReview.Lastname) ?? false}");
+                    Console.WriteLine($"publication | {current.AppearsInTargetPN} | {matchedReview.AppearsInID} | {current.AppearsInTargetPN.Equals(matchedReview.AppearsInID)}");
+                    Console.WriteLine($"page range | {current.PageRange ?? "NOT FOUND"} | {matchedReview.PageRange}-{matchedReview.PageEnd} | {current.PageRange?.Equals(matchedReview.PageRange) ?? false}");
+                    Console.WriteLine($"date (not compared) | {current.Date ?? "NOT FOUND"} | {matchedReview.Date} | {current.Date?.Equals(matchedReview.Date) ?? false}");
+                 }
+            }
+        }
+        
+        return results;
+    }
+
+    private static void CheckReviewFileHAsCR(ParsedXMLReviewData current, CRReviewData matchedReview)
+    {
+        var file = new XmlDocument();
+        file.Load(current.Source.PNFileName);
+        // Create an XmlNamespaceManager to handl
+        XmlNamespaceManager nsmgr = new XmlNamespaceManager(file.NameTable);
+
+        nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
+
+ 
+        var seg = file.SelectSingleNode("//tei:seg[@subtype='cr']", nsmgr);
+        if (seg != null)
+        {
+            var crText = seg.InnerText.Replace("&","&amp;");
+            if (crText != null)
+            {
+                if (crText.Contains(matchedReview.CRData)) return;
+                else seg.InnerText = seg.InnerText + $" - {matchedReview.CRData}";
+                Console.WriteLine($"Updated {current.Source.PNFileName} cr to be: {seg.InnerText}");
+            }
+        }
+        else
+        {
+        }
+        
+        file.Save(current.Source.PNFileName);
+    }
+
+    private static CRReviewData? GetMatch(ParsedXMLReviewData current, List<CRReviewData> bpNotMatched)
+    {
+        CRReviewData review = null;
+
+        (CRReviewData CRReviewData, int strength) strongestMatch = new ValueTuple<CRReviewData, int>(null, -1);
+        foreach (var entry in bpNotMatched)
+        {
+            var strength = GetMatchStrength(current, entry);
+            if (strength > strongestMatch.strength)
+            {
+                strongestMatch = (entry, strength);
+            }
+        }
+
+
+        if (strongestMatch.CRReviewData != null)
+        {
+            review = strongestMatch.CRReviewData;
+        }
+        
+        return review;
+    }
+
+    private static int GetMatchStrength(ParsedXMLReviewData current, CRReviewData bpNotMatched)
+    {
+        var count = 0;
+        var surname = bpNotMatched.Lastname == current.AuthorsSurname;
+        //var date = entry.Date == current.Date;
+        var publication = bpNotMatched.JournalID == current.AppearsInTargetPN; ;
+        var pageRange = bpNotMatched.PageRange.Equals(current.PageRange);
+
+        if (surname && publication && pageRange) return 3;
+        if (surname) count++;
+        if (publication) count++;
+        if (pageRange) count++;
+
+        return count;
+    }
+
+
+    private static bool AnyMatch(ParsedXMLReviewData current, List<CRReviewData> bpNotMatched)
+    {
+        var match = false;
+        foreach (var entry in bpNotMatched)
+        {
+            var surname = entry.Lastname == current.AuthorsSurname;
+            //var date = entry.Date == current.Date;
+            var publication = entry.JournalID == current.AppearsInTargetPN;
+            var pageRange = $"{entry.PageStart}-{entry.PageEnd}" == current.PageRange;
+
+            if (surname && publication && pageRange) return true;
+            match = match || surname || publication || pageRange;
+        }
+
+        return match;
+    }
+
+    private static void SaveMatchResultsInSpreadsheet(List<MatchedReviews> matchedReviews)
+    {
+        var newFile = new FileInfo( Directory.GetCurrentDirectory()+ @"\reviewMatches.xlsx");
+        if (!newFile.Exists)
+        {
+            //newFile.Delete();  // ensures we create a new workbook
+            newFile = new FileInfo(Directory.GetCurrentDirectory()+ @"\reviewMatches.xlsx");
+        }
+        using (ExcelPackage package = new ExcelPackage(newFile))
+        {
+            var numb = 1;
+            if (package.Workbook.Worksheets.Any(x => x.Name == $"Reviews in PN and BP"))
+            {
+                package.Workbook.Worksheets.Delete("Reviews in PN and BP");
+            }
+            var worksheet = package.Workbook.Worksheets.Add($"Reviews in PN and BP");
+            worksheet.Cells[numb,1].Value = "PN Number";
+            worksheet.Cells[numb,2].Value = "BP Number";
+            worksheet.Cells[numb,3].Value = "# PN Reviews";
+            worksheet.Cells[numb,4].Value = "# BP Reviews";
+            worksheet.Cells[numb,5].Value = "Equal?";
+            numb++;
+            
+            foreach (var match in matchedReviews)
+            {
+                var bpVal = match.ReviewFrom.HasBPNum ? match.ReviewFrom.BPNumber : "NONE";
+                Console.WriteLine(
+                    $"PN: {match.ReviewFrom.PNNumber} BP: {bpVal} has {match.PNReviews.Count} PN reviews and {match.CRReviews.Count} BP reviews. Are they equal: {match.SameNumberOfReviews}");
+                worksheet.Cells[numb,1].Value = match.ReviewFrom.PNNumber;
+                worksheet.Cells[numb,2].Value = bpVal;
+                worksheet.Cells[numb,3].Value = match.PNReviews.Count;
+                worksheet.Cells[numb,4].Value = match.CRReviews.Count;
+                worksheet.Cells[numb,5].Value = match.SameNumberOfReviews;
+                worksheet.Cells[numb,5].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                worksheet.Cells[numb,5].Style.Fill.BackgroundColor.SetColor(match.SameNumberOfReviews? Color.Green : Color.Red); 
+                numb++;
+
+            }
+            package.Save();
         }
     }
 
@@ -116,8 +286,6 @@ public class PapyriCRChecker
     
     private static List<XMLDataEntry> GetCRFiles(List<XMLDataEntry> biblioFiles)
     {
-        var crFiles = new List<XMLDataEntry>();
-        
         
         var reviewFiles = new List<XMLDataEntry>();
 
@@ -131,7 +299,6 @@ public class PapyriCRChecker
     
         return reviewFiles;
         
-        return crFiles;
     }
     /// <summary>
     /// Determines if an XML file contains a <seg> node with subtype="cr".
