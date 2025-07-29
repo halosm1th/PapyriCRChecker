@@ -128,12 +128,16 @@ public class ParsedXMLReviewData
         var targets = new List<XMLReviewInfo>();
         foreach (var reviewTarget in reviewTargetPns)
         {
-            var reviewer = PapyriCRChecker.ExtractAuthorSurname(reviewTarget);
-            var pages = PapyriCRChecker.ExtractPageRanges(reviewTarget);
-            var date = PapyriCRChecker.ExtractDate(reviewTarget);
-            var location = ExtractJournalNameFromCrSeg(reviewTarget); 
-            var review = new XMLReviewInfo(reviewer, location, date, pages, reviewTarget);
-            targets.Add(review);
+            var file = PapyriCRChecker.LoadDoc(reviewTarget);
+            if (file == null)
+            {
+                var reviewer = PapyriCRChecker.ExtractAuthorSurname(file, reviewTarget);
+                var pages = PapyriCRChecker.ExtractPageRanges(file, reviewTarget);
+                var date = PapyriCRChecker.ExtractDate(file, reviewTarget);
+                var location = ExtractJournalNameFromCrSeg(reviewTarget);
+                var review = new XMLReviewInfo(reviewer, location, date, pages, reviewTarget);
+                targets.Add(review);
+            }
         }
         
         return targets;

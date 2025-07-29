@@ -10,22 +10,6 @@ using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using PNCheckNewXMLs;
 
-public class MatchedReviews
-{
-    public MatchedReviews(XMLDataEntry reviewFrom, List<ParsedXMLReviewData> pnReviews, List<CRReviewData> crReviews)
-    {
-        ReviewFrom = reviewFrom;
-        PNReviews = pnReviews;
-        CRReviews = crReviews;
-    }
-
-    public XMLDataEntry ReviewFrom { get; set; }
-    public List<ParsedXMLReviewData> PNReviews { get; set; }
-    public List<CRReviewData> CRReviews { get; set; }
-
-    public bool SameNumberOfReviews => PNReviews.Count == CRReviews.Count;
-}
-
 public class PapyriCRChecker
 {
     private static List<XMLDataEntry> filesFromBiblio;
@@ -52,17 +36,152 @@ public class PapyriCRChecker
         foreach (var match in matchedReviews)
         {
             var newResults = CompareReviews(match);
+            SaveResults(newResults);
         }
     }
 
-    private static List<(List<XMLDataEntry> ReviewInPNNotINBP, List<CRReviewData> ReviewInBPNotINPN)> 
+    private static void SaveResults(List<(List<ParsedXMLReviewData> ReviewInPNNotINBP, List<CRReviewData> ReviewInBPNotINPN)> newResults)
+    {
+        foreach (var review in newResults)
+        { 
+            SaveReviewsNotInBP(review.ReviewInPNNotINBP);
+           // SAveReviewsNotInPN(review.ReviewInBPNotINPN);
+        }
+    }
+
+    private static void SaveReviewsNotInBP(List<ParsedXMLReviewData> reviewReviewInPnNotInbp)
+    {
+        foreach (var review in reviewReviewInPnNotInbp)
+        {
+            var fileName = review.Source.PNFileName;
+            Console.WriteLine($"Loading: {fileName} because BP is missing some elements from it.");
+            var file = LoadDoc(fileName);
+
+            if (file != null)
+            {
+                var firstname = ExtractAuthorFirstname(file, fileName);
+                var surname = ExtractAuthorSurname(file, fileName);
+                var publicationInformation = ExtractPublicationInfo(file, fileName);
+                
+                var saveTxt = $"{firstname} {surname} {publicationInformation}";
+
+                Console.WriteLine(saveTxt);
+            }
+        }
+    }
+
+    private static object ExtractPublicationInfo(XmlDocument xmlDoc, string path)
+    {
+        try
+        {
+            // Create an XmlNamespaceManager for TEI namespace
+            XmlNamespaceManager nsmgr = new XmlNamespaceManager(xmlDoc.NameTable);
+            nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
+
+            // Select the <biblScope> node with type="pp" using the namespace prefix
+            XmlNode publicationNode = xmlDoc.SelectSingleNode("//tei:seg[@subtype='publication']", nsmgr);
+            XmlNode colRangeNode = xmlDoc.SelectSingleNode("//tei:biblScope[@type='col']", nsmgr);
+            XmlNode pageCount = xmlDoc.SelectSingleNode("//tei:note[@type='pageCount']", nsmgr);
+
+            if (publicationNode != null)
+            {
+                return publicationNode.InnerText;
+            }/* else if (pageCount != null)
+           {
+                return pageCount.InnerText;
+            }
+
+            if (colRangeNode != null)
+            {
+                return colRangeNode.InnerText.Replace("coll. ", "");
+            } */
+            else
+            {
+                Console.WriteLine($"Page ranges not found in file {path}.");
+            }
+        }
+        catch (XmlException ex)
+        {
+            Console.WriteLine($"Error parsing XML file '{path}': {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred while processing '{path}': {ex.Message}");
+        }
+        return null;
+    }
+
+    private static List<(List<ParsedXMLReviewData> ReviewInPNNotINBP, List<CRReviewData> ReviewInBPNotINPN)> 
         CompareReviews(MatchedReviews match)
     {
-        var results = new List<(List<XMLDataEntry> ReviewInPNNotINBP, List<CRReviewData> ReviewInBPNotINPN)>();
-
         var BPNotMatched = match.CRReviews;
         var PNNotMatched = match.PNReviews;
         
+        var BpIsBigger = BPNotMatched.Count > PNNotMatched.Count;
+        
+        if (BpIsBigger) return ReviewBPDominant(PNNotMatched, BPNotMatched);
+        else return ReviewPNDominant(PNNotMatched, BPNotMatched);
+    }
+
+    private static List<(List<ParsedXMLReviewData> ReviewInPNNotINBP, List<CRReviewData> ReviewInBPNotINPN)> 
+        ReviewBPDominant(List<ParsedXMLReviewData> PNNotMatched, List<CRReviewData> bpNotMatched)
+    {
+        var results = new List<(List<ParsedXMLReviewData> ReviewInPNNotINBP, List<CRReviewData> ReviewInBPNotINPN)>();
+        var reviewCount = bpNotMatched.Count;
+
+        for (int i = 0; i < reviewCount; i++)
+        {
+            // if (PNNotMatched.Count == 0 || bpNotMatched.Count == 0) break;
+
+            var current = bpNotMatched[i];
+            if (AnyBPMatchInPNNotMatched(current, PNNotMatched))
+            {
+                var matchedReview = GetMatchFromBP(current, PNNotMatched);
+                if (matchedReview != null)
+                {
+                    CheckReviewFileHAsCR(current.Source.PNFileName, matchedReview.Source.CR);
+                    PNNotMatched.Remove(matchedReview);
+                    bpNotMatched.Remove(current);
+                    Console.WriteLine("------------------------------------------------------------------------");
+                    Console.WriteLine($"{current.Source.PNNumber}-{i}-{current.JournalID} | PN | BP | Match");
+                    Console.WriteLine(
+                        $"surname | {current.Lastname ?? "NOT FOUND"} | {matchedReview.AuthorsSurname} | {current.Lastname?.Equals(matchedReview.AuthorsSurname) ?? false}");
+                    Console.WriteLine(
+                        $"publication | {current.JournalID} | {matchedReview.AppearsInTargetPN} | {current.AppearsInID.Equals(matchedReview.AppearsInTargetPN)}");
+                    Console.WriteLine(
+                        $"page range | {current.PageRange ?? "NOT FOUND"} | {matchedReview.PageRange} | {current.PageRange?.Equals(matchedReview.PageRange) ?? false}");
+                    Console.WriteLine(
+                        $"date (not compared) | {current.Date ?? "NOT FOUND"} | {matchedReview.Date} | {current.Date?.Equals(matchedReview.Date) ?? false}");
+                }
+            }
+        }
+
+        results.Add((PNNotMatched, bpNotMatched));
+        return results;
+    }
+
+
+    private static bool AnyBPMatchInPNNotMatched(CRReviewData current, List<ParsedXMLReviewData> pnNotMatched)
+    {
+        var match = false;
+        foreach (var entry in pnNotMatched)
+        {
+            var surname = entry.AuthorsSurname == current.Lastname;
+            //var date = entry.Date == current.Date;
+            var publication = entry.AppearsInTargetPN == current.JournalID;
+            var pageRange = $"{current.PageStart}-{current.PageEnd}" == entry.PageRange;
+
+            if (surname && publication && pageRange) return true;
+            match = match || surname || publication || pageRange;
+        }
+
+        return match;
+    }
+
+    private static List<(List<ParsedXMLReviewData> ReviewInPNNotINBP, List<CRReviewData> ReviewInBPNotINPN)>  
+        ReviewPNDominant(List<ParsedXMLReviewData> PNNotMatched, List<CRReviewData> BPNotMatched)
+    {
+        var results = new List<(List<ParsedXMLReviewData> ReviewInPNNotINBP, List<CRReviewData> ReviewInBPNotINPN)>();
         var reviewCount = PNNotMatched.Count;
 
         for (int i = 0; i < reviewCount; i++)
@@ -70,12 +189,12 @@ public class PapyriCRChecker
             if (BPNotMatched.Count == 0 || PNNotMatched.Count == 0) break;
 
             var current = PNNotMatched[i];
-            if (AnyMatch(current, BPNotMatched))
+            if (AnyPNMatchInBP(current, BPNotMatched))
             {
-                var matchedReview = GetMatch(current, BPNotMatched);
+                var matchedReview = GetMatchFromPN(current, BPNotMatched);
                 if (matchedReview != null)
                 {
-                    CheckReviewFileHAsCR(current, matchedReview);
+                    CheckReviewFileHAsCR(current.Source.PNFileName, matchedReview.CRData);
                     BPNotMatched.Remove(matchedReview);
                     PNNotMatched.Remove(current);
                     Console.WriteLine("------------------------------------------------------------------------");
@@ -84,17 +203,18 @@ public class PapyriCRChecker
                     Console.WriteLine($"publication | {current.AppearsInTargetPN} | {matchedReview.AppearsInID} | {current.AppearsInTargetPN.Equals(matchedReview.AppearsInID)}");
                     Console.WriteLine($"page range | {current.PageRange ?? "NOT FOUND"} | {matchedReview.PageRange}-{matchedReview.PageEnd} | {current.PageRange?.Equals(matchedReview.PageRange) ?? false}");
                     Console.WriteLine($"date (not compared) | {current.Date ?? "NOT FOUND"} | {matchedReview.Date} | {current.Date?.Equals(matchedReview.Date) ?? false}");
-                 }
+                }
             }
         }
         
+        results.Add((PNNotMatched, BPNotMatched));
         return results;
     }
 
-    private static void CheckReviewFileHAsCR(ParsedXMLReviewData current, CRReviewData matchedReview)
+    private static void CheckReviewFileHAsCR(string currentSource, string matchedCRData)
     {
         var file = new XmlDocument();
-        file.Load(current.Source.PNFileName);
+        file.Load(currentSource);
         // Create an XmlNamespaceManager to handl
         XmlNamespaceManager nsmgr = new XmlNamespaceManager(file.NameTable);
 
@@ -104,22 +224,62 @@ public class PapyriCRChecker
         var seg = file.SelectSingleNode("//tei:seg[@subtype='cr']", nsmgr);
         if (seg != null)
         {
-            var crText = seg.InnerText.Replace("&","&amp;");
+            var crText = seg.InnerText;
+            var matchText = matchedCRData.Replace("&amp;","&").Replace("&lt;", "<").Replace("&gt;", ">");
             if (crText != null)
             {
-                if (crText.Contains(matchedReview.CRData)) return;
-                else seg.InnerText = seg.InnerText + $" - {matchedReview.CRData}";
-                Console.WriteLine($"Updated {current.Source.PNFileName} cr to be: {seg.InnerText}");
+                if (crText.Replace("C.R. par", "").Replace("C.R. ", "").Contains(matchText)) return;
+                else
+                {
+                    bool notFound = true;
+                    while (notFound)
+                    {
+                        Console.WriteLine(
+                            $"The system wants to correct the Seg element which currently reads as: {seg.InnerText} to contain {matchText}.");
+                        Console.WriteLine("Is this correct? (y/n)");
+                        var input = Console.ReadKey();
+                        if (input.Key.ToString().ToUpper() == "Y")
+                        {
+                            seg.InnerText = seg.InnerText +
+                                            $" - {matchText}";
+                            notFound = false;
+                Console.WriteLine($"Updated {currentSource} cr to be: {seg.InnerText}");
+                
+                        }
+                        else if (input.Key.ToString().ToUpper() == "N") notFound = false;
+                        else Console.WriteLine("Error, please enter y/n.");
+                    }
+                }
             }
         }
-        else
+        
+        file.Save(currentSource);
+    }
+    
+    private static ParsedXMLReviewData GetMatchFromBP(CRReviewData current, List<ParsedXMLReviewData> pnNotMatched)
+    {
+        ParsedXMLReviewData review = null;
+
+        (ParsedXMLReviewData PNReviewData, int strength) strongestMatch = new ValueTuple<ParsedXMLReviewData, int>(null, -1);
+        foreach (var entry in pnNotMatched)
         {
+            var strength = GetMatchStrength(entry,current);
+            if (strength > strongestMatch.strength)
+            {
+                strongestMatch = (entry, strength);
+            }
+        }
+
+
+        if (strongestMatch.PNReviewData != null)
+        {
+            review = strongestMatch.PNReviewData;
         }
         
-        file.Save(current.Source.PNFileName);
+        return review;
     }
-
-    private static CRReviewData? GetMatch(ParsedXMLReviewData current, List<CRReviewData> bpNotMatched)
+    
+    private static CRReviewData? GetMatchFromPN(ParsedXMLReviewData current, List<CRReviewData> bpNotMatched)
     {
         CRReviewData review = null;
 
@@ -159,7 +319,7 @@ public class PapyriCRChecker
     }
 
 
-    private static bool AnyMatch(ParsedXMLReviewData current, List<CRReviewData> bpNotMatched)
+    private static bool AnyPNMatchInBP(ParsedXMLReviewData current, List<CRReviewData> bpNotMatched)
     {
         var match = false;
         foreach (var entry in bpNotMatched)
@@ -345,17 +505,25 @@ public class PapyriCRChecker
         List<ParsedXMLReviewData> parsedXmlReviews = new List<ParsedXMLReviewData>();
         foreach (var reviewFile in reviewFiles)
         {
-            var reviewNumbesrFromBiblio = ExtractReviewBiblioIds(reviewFile.PNFileName);
-            var reviewFilePath = GetReviewFilePaths(reviewNumbesrFromBiblio);
-            var appearsInPath = ExtractAppearsInBiblioId(reviewFile.PNFileName);
-            var authorSurname = ExtractAuthorSurname (reviewFile.PNFileName);
-            var pages = ExtractPageRanges(reviewFile.PNFileName);
-            var date = ExtractDate(reviewFile.PNFileName);
-            
-            var parsedData = new ParsedXMLReviewData(reviewFilePath,
-                appearsInPath,authorSurname, pages,date, reviewFile);
-            
-            parsedXmlReviews.Add(parsedData);
+            var doc = LoadDoc(reviewFile.PNFileName);
+            if (doc != null)
+            {
+                var reviewNumbesrFromBiblio = ExtractReviewBiblioIds(doc, reviewFile.PNFileName);
+                var reviewFilePath = GetReviewFilePaths(reviewNumbesrFromBiblio);
+                var appearsInPath = ExtractAppearsInBiblioId(doc, reviewFile.PNFileName);
+                var authorSurname = ExtractAuthorSurname(doc, reviewFile.PNFileName);
+                var pages = ExtractPageRanges(doc, reviewFile.PNFileName);
+                var date = ExtractDate(doc, reviewFile.PNFileName);
+
+                var parsedData = new ParsedXMLReviewData(reviewFilePath,
+                    appearsInPath, authorSurname, pages, date, reviewFile);
+
+                parsedXmlReviews.Add(parsedData);
+            }
+            else
+            {
+                Console.WriteLine($"There was an loading: {reviewFile.PNFileName}");
+            }
         }
         
         return parsedXmlReviews;
@@ -383,23 +551,52 @@ public class PapyriCRChecker
         return returnPaths;
     }
 
+    public static string ExtractAuthorFirstname(XmlDocument xmlDoc, string path)
+    {
+        try
+        {
+            // Create an XmlNamespaceManager for TEI namespace
+            XmlNamespaceManager nsmgr = new XmlNamespaceManager(xmlDoc.NameTable);
+            nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
+
+            // Select the <surname> node directly under <author> using the namespace prefix
+            XmlNode authorfirstName = xmlDoc.SelectSingleNode("//tei:author/tei:firstname", nsmgr);
+            XmlNode editorFirstName = xmlDoc.SelectSingleNode("//tei:editor/tei:firstname", nsmgr);
+
+            if (authorfirstName != null)
+            {
+                return authorfirstName.InnerText;
+            }
+            if (editorFirstName != null)
+            {
+                return editorFirstName.InnerText;
+            }
+            else
+            {
+                Console.WriteLine($"Author surname not found in file {path}.");
+            }
+        }
+        catch (XmlException ex)
+        {
+            Console.WriteLine($"Error parsing XML file '{path}': {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred while processing '{path}': {ex.Message}");
+        }
+        return null;
+    }
+    
+
     /// <summary>
     /// Extracts the surname of the author from the XML file, handling XML namespaces.
     /// </summary>
     /// <param name="filePath">The path to the XML file.</param>
     /// <returns>The author's surname as a string, or null if not found or an error occurs.</returns>
-    public static string ExtractAuthorSurname(string filePath)
+    public static string ExtractAuthorSurname(XmlDocument xmlDoc, string path)
     {
-        if (!File.Exists(filePath))
-        {
-            Console.WriteLine($"Error: File not found at '{filePath}'");
-            return null;
-        }
-
-        XmlDocument xmlDoc = new XmlDocument();
         try
         {
-            xmlDoc.Load(filePath);
             // Create an XmlNamespaceManager for TEI namespace
             XmlNamespaceManager nsmgr = new XmlNamespaceManager(xmlDoc.NameTable);
             nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
@@ -418,16 +615,16 @@ public class PapyriCRChecker
             }
             else
             {
-                Console.WriteLine($"Author surname not found in file {filePath}.");
+                Console.WriteLine($"Author surname not found in file {path}.");
             }
         }
         catch (XmlException ex)
         {
-            Console.WriteLine($"Error parsing XML file '{filePath}': {ex.Message}");
+            Console.WriteLine($"Error parsing XML file '{path}': {ex.Message}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"An unexpected error occurred while processing '{filePath}': {ex.Message}");
+            Console.WriteLine($"An unexpected error occurred while processing '{path}': {ex.Message}");
         }
         return null;
     }
@@ -438,18 +635,10 @@ public class PapyriCRChecker
     /// </summary>
     /// <param name="filePath">The path to the XML file.</param>
     /// <returns>The extracted ID as a string, or null if not found or an error occurs.</returns>
-    public static string ExtractAppearsInBiblioId(string filePath)
+    public static string ExtractAppearsInBiblioId(XmlDocument xmlDoc, string path)
     {
-        if (!File.Exists(filePath))
-        {
-            Console.WriteLine($"Error: File not found at '{filePath}'");
-            return null;
-        }
-
-        XmlDocument xmlDoc = new XmlDocument();
         try
         {
-            xmlDoc.Load(filePath);
             // Create an XmlNamespaceManager for TEI namespace
             XmlNamespaceManager nsmgr = new XmlNamespaceManager(xmlDoc.NameTable);
             nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
@@ -470,26 +659,26 @@ public class PapyriCRChecker
                     }
                     else
                     {
-                        Console.WriteLine($"No numerical ID found at the end of the 'appearsIn' in file {filePath}.");
+                        Console.WriteLine($"No numerical ID found at the end of the 'appearsIn' in file {path}.");
                     }
                 }
                 else
                 {
-                    Console.WriteLine($"Target attribute is empty or null for 'appearsIn' <ptr> element  in file {filePath}.");
+                    Console.WriteLine($"Target attribute is empty or null for 'appearsIn' <ptr> element  in file {path}.");
                 }
             }
             else
             {
-                Console.WriteLine($"No <ptr> element found within <relatedItem type=\"appearsIn\">/bibl with a 'target' attribute (check namespace or XPath)  in file {filePath}..");
+                Console.WriteLine($"No <ptr> element found within <relatedItem type=\"appearsIn\">/bibl with a 'target' attribute (check namespace or XPath)  in file {path}.");
             }
         }
         catch (XmlException ex)
         {
-            Console.WriteLine($"Error parsing XML file '{filePath}': {ex.Message}");
+            Console.WriteLine($"Error parsing XML file '{path}': {ex.Message}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"An unexpected error occurred while processing '{filePath}': {ex.Message}");
+            Console.WriteLine($"An unexpected error occurred while processing '{path}': {ex.Message}");
         }
         return null;
     }
@@ -499,18 +688,10 @@ public class PapyriCRChecker
     /// </summary>
     /// <param name="filePath">The path to the XML file.</param>
     /// <returns>The date as a string, or null if not found or an error occurs.</returns>
-    public static string ExtractDate(string filePath)
+    public static string ExtractDate(XmlDocument xmlDoc, string path)
     {
-        if (!File.Exists(filePath))
-        {
-            Console.WriteLine($"Error: File not found at '{filePath}'");
-            return null;
-        }
-
-        XmlDocument xmlDoc = new XmlDocument();
         try
         {
-            xmlDoc.Load(filePath);
             // Create an XmlNamespaceManager for TEI namespace
             XmlNamespaceManager nsmgr = new XmlNamespaceManager(xmlDoc.NameTable);
             nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
@@ -524,16 +705,16 @@ public class PapyriCRChecker
             }
             else
             {
-                Console.WriteLine($"Date not found  in file {filePath}..");
+                Console.WriteLine($"Date not found  in file {path}..");
             }
         }
         catch (XmlException ex)
         {
-            Console.WriteLine($"Error parsing XML file '{filePath}': {ex.Message}");
+            Console.WriteLine($"Error parsing XML file '{path}': {ex.Message}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"An unexpected error occurred while processing '{filePath}': {ex.Message}");
+            Console.WriteLine($"An unexpected error occurred while processing '{path}': {ex.Message}");
         }
         return null;
     }
@@ -544,18 +725,10 @@ public class PapyriCRChecker
     /// </summary>
     /// <param name="filePath">The path to the XML file.</param>
     /// <returns>The page ranges as a string, or null if not found or an error occurs.</returns>
-    public static string ExtractPageRanges(string filePath)
+    public static string ExtractPageRanges(XmlDocument xmlDoc, string path)
     {
-        if (!File.Exists(filePath))
-        {
-            Console.WriteLine($"Error: File not found at '{filePath}'");
-            return null;
-        }
-
-        XmlDocument xmlDoc = new XmlDocument();
         try
         {
-            xmlDoc.Load(filePath);
             // Create an XmlNamespaceManager for TEI namespace
             XmlNamespaceManager nsmgr = new XmlNamespaceManager(xmlDoc.NameTable);
             nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
@@ -579,18 +752,40 @@ public class PapyriCRChecker
             }
             else
             {
-                Console.WriteLine($"Page ranges not found  in file {filePath}.");
+                Console.WriteLine($"Page ranges not found in file {path}.");
             }
         }
         catch (XmlException ex)
         {
-            Console.WriteLine($"Error parsing XML file '{filePath}': {ex.Message}");
+            Console.WriteLine($"Error parsing XML file '{path}': {ex.Message}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"An unexpected error occurred while processing '{filePath}': {ex.Message}");
+            Console.WriteLine($"An unexpected error occurred while processing '{path}': {ex.Message}");
         }
         return null;
+    }
+
+    public static XmlDocument? LoadDoc(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            Console.WriteLine($"Error: File not found at '{filePath}'");
+            return null; // Return empty list on error
+        }
+
+        XmlDocument xmlDoc = new XmlDocument();
+        try
+        {
+            // Load the XML file.
+            xmlDoc.Load(filePath);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
+        
+        return xmlDoc;
     }
     
     /// <summary>
@@ -602,23 +797,11 @@ public class PapyriCRChecker
     /// <returns>
     /// The extracted number as a string, or null if not found or an error occurs.
     /// </returns>
-    public static List<string> ExtractReviewBiblioIds(string filePath)
+    public static List<string> ExtractReviewBiblioIds(XmlDocument xmlDoc, string path)
     {
         List<string> reviewIds = new List<string>(); // Initialize a list to store the IDs
-
-        // Check if the file exists before attempting to load it.
-        if (!File.Exists(filePath))
-        {
-            Console.WriteLine($"Error: File not found at '{filePath}'");
-            return reviewIds; // Return empty list on error
-        }
-
-        XmlDocument xmlDoc = new XmlDocument();
         try
         {
-            // Load the XML file.
-            xmlDoc.Load(filePath);
-
             // Create an XmlNamespaceManager to handle namespaces in the XPath query.
             // The NamespaceURI is "http://www.tei-c.org/ns/1.0" as defined in your XML.
             // We'll use "tei" as the prefix for this namespace.
@@ -654,22 +837,22 @@ public class PapyriCRChecker
                     }
                     else
                     {
-                        Console.WriteLine($"Warning: Target attribute is empty or null for a <ptr> element within <relatedItem type=\"reviews\">  in file {filePath}..");
+                        Console.WriteLine($"Warning: Target attribute is empty or null for a <ptr> element within <relatedItem type=\"reviews\">  in file {path}.");
                     }
                 }
             }
             else
             {
-                Console.WriteLine($"No <ptr> elements found within <relatedItem type=\"reviews\">/bibl with a 'target' attribute (check namespace or XPath)  in file {filePath}..");
+                Console.WriteLine($"No <ptr> elements found within <relatedItem type=\"reviews\">/bibl with a 'target' attribute (check namespace or XPath)  in file {path}.");
             }
         }
         catch (XmlException ex)
         {
-            Console.WriteLine($"Error parsing XML file '{filePath}': {ex.Message}");
+            Console.WriteLine($"Error parsing XML file '{path}': {ex.Message}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"An unexpected error occurred while processing '{filePath}': {ex.Message}");
+            Console.WriteLine($"An unexpected error occurred while processing '{path}': {ex.Message}");
         }
 
         return reviewIds; // Return the list of extracted IDs
