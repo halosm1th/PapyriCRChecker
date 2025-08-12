@@ -25,6 +25,7 @@ public class PapyriCRChecker
         var reviewFiles = GetReviewFiles(filesFromBiblio);
         var parsedXmlReviews  = ParseXMLFiles(reviewFiles);
 
+        Console.WriteLine("Gathering CR elements from files in the biblio dir.");
         var CRFiles = GetCRFiles(filesFromBiblio);
         var crParser = new CRReviewParser(logger,filesFromBiblio,Directory.GetCurrentDirectory());
         var lastPN = 0; //GetLastPN(-1, logger, filesFromBiblio);
@@ -36,21 +37,37 @@ public class PapyriCRChecker
         foreach (var match in matchedReviews)
         {
             var newResults = CompareReviews(match);
-            SaveResults(newResults);
+            SaveResults(newResults, logger);
         }
     }
 
-    private static void SaveResults(List<(List<ParsedXMLReviewData> ReviewInPNNotINBP, List<CRReviewData> ReviewInBPNotINPN)> newResults)
+    private static void SaveResults(List<(List<ParsedXMLReviewData> ReviewInPNNotINBP,
+        List<CRReviewData> ReviewInBPNotINPN)> newResults, Logger logger)
     {
         foreach (var review in newResults)
         { 
             SaveReviewsNotInBP(review.ReviewInPNNotINBP);
-           // SAveReviewsNotInPN(review.ReviewInBPNotINPN);
+            SaveReviewsNotInPN(review.ReviewInBPNotINPN, logger);
         }
+    }
+
+    private static void SaveReviewsNotInPN(List<CRReviewData> reviewReviewInBpNotInpn, Logger logger)
+    {
+        var lastID = -1;
+        lastID = GetLastPN(lastID,logger, filesFromBiblio);
+        foreach (var review in reviewReviewInBpNotInpn)
+        {
+            lastID++;
+            review.IDNumber = lastID.ToString();
+            
+        }
+        
+        throw new NotImplementedException();
     }
 
     private static void SaveReviewsNotInBP(List<ParsedXMLReviewData> reviewReviewInPnNotInbp)
     {
+        var saveFile = Directory.GetCurrentDirectory() + $"/PapyriCRChecker results from {DateTime.Now}.txt";
         foreach (var review in reviewReviewInPnNotInbp)
         {
             var fileName = review.Source.PNFileName;
@@ -63,9 +80,17 @@ public class PapyriCRChecker
                 var surname = ExtractAuthorSurname(file, fileName);
                 var publicationInformation = ExtractPublicationInfo(file, fileName);
                 
-                var saveTxt = $"{firstname} {surname} {publicationInformation}";
+                var saveTxt = $"{firstname} {surname} {publicationInformation}\n";
 
                 Console.WriteLine(saveTxt);
+                if (File.Exists(saveFile))
+                {
+                    File.AppendAllText(saveFile,saveTxt);
+                }
+                else
+                {
+                    File.WriteAllText(saveFile, saveTxt);
+                }
             }
         }
     }
@@ -97,7 +122,7 @@ public class PapyriCRChecker
             } */
             else
             {
-                Console.WriteLine($"Page ranges not found in file {path}.");
+                Console.WriteLine($"Page ranges not found in file {path} while extracting publication info.");
             }
         }
         catch (XmlException ex)
@@ -560,8 +585,8 @@ public class PapyriCRChecker
             nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
 
             // Select the <surname> node directly under <author> using the namespace prefix
-            XmlNode authorfirstName = xmlDoc.SelectSingleNode("//tei:author/tei:firstname", nsmgr);
-            XmlNode editorFirstName = xmlDoc.SelectSingleNode("//tei:editor/tei:firstname", nsmgr);
+            XmlNode authorfirstName = xmlDoc.SelectSingleNode("/tei:bibl/tei:author/tei:forename", nsmgr);
+            XmlNode editorFirstName = xmlDoc.SelectSingleNode("/tei:bibl/tei:editor/tei:forename", nsmgr);
 
             if (authorfirstName != null)
             {
@@ -573,7 +598,7 @@ public class PapyriCRChecker
             }
             else
             {
-                Console.WriteLine($"Author surname not found in file {path}.");
+                Console.WriteLine($"Author first name not found in file {path}.");
             }
         }
         catch (XmlException ex)
@@ -602,8 +627,8 @@ public class PapyriCRChecker
             nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
 
             // Select the <surname> node directly under <author> using the namespace prefix
-            XmlNode authorSurnameNode = xmlDoc.SelectSingleNode("//tei:author/tei:surname", nsmgr);
-            XmlNode editorSurnameNode = xmlDoc.SelectSingleNode("//tei:editor/tei:surname", nsmgr);
+            XmlNode authorSurnameNode = xmlDoc.SelectSingleNode("/tei:bibl/tei:author/tei:surname", nsmgr);
+            XmlNode editorSurnameNode = xmlDoc.SelectSingleNode("/tei:bibl/tei:editor/tei:surname", nsmgr);
 
             if (authorSurnameNode != null)
             {
@@ -644,7 +669,7 @@ public class PapyriCRChecker
             nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
 
             // Select the <ptr> node within <relatedItem type="appearsIn"> using the namespace prefix
-            XmlNode ptrNode = xmlDoc.SelectSingleNode("//tei:relatedItem[@type='appearsIn']/tei:bibl/tei:ptr[@target]", nsmgr);
+            XmlNode ptrNode = xmlDoc.SelectSingleNode("/tei:bibl/tei:relatedItem[@type='appearsIn']/tei:bibl/tei:ptr[@target]", nsmgr);
 
             if (ptrNode != null)
             {
@@ -697,7 +722,7 @@ public class PapyriCRChecker
             nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
 
             // Select the <date> node using the namespace prefix
-            XmlNode dateNode = xmlDoc.SelectSingleNode("//tei:date", nsmgr);
+            XmlNode dateNode = xmlDoc.SelectSingleNode("/tei:bibl/tei:date", nsmgr);
 
             if (dateNode != null)
             {
@@ -734,9 +759,9 @@ public class PapyriCRChecker
             nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
 
             // Select the <biblScope> node with type="pp" using the namespace prefix
-            XmlNode pageRangeNode = xmlDoc.SelectSingleNode("//tei:biblScope[@type='pp']", nsmgr);
-            XmlNode colRangeNode = xmlDoc.SelectSingleNode("//tei:biblScope[@type='col']", nsmgr);
-            XmlNode pageCount = xmlDoc.SelectSingleNode("//tei:note[@type='pageCount']", nsmgr);
+            XmlNode pageRangeNode = xmlDoc.SelectSingleNode("/tei:bibl/tei:biblScope[@type='pp']", nsmgr);
+            XmlNode colRangeNode = xmlDoc.SelectSingleNode("/tei:bibl/tei:biblScope[@type='col']", nsmgr);
+            XmlNode pageCount = xmlDoc.SelectSingleNode("/tei:bibl/tei:note[@type='pageCount']", nsmgr);
 
             if (pageRangeNode != null)
             {
@@ -802,16 +827,10 @@ public class PapyriCRChecker
         List<string> reviewIds = new List<string>(); // Initialize a list to store the IDs
         try
         {
-            // Create an XmlNamespaceManager to handle namespaces in the XPath query.
-            // The NamespaceURI is "http://www.tei-c.org/ns/1.0" as defined in your XML.
-            // We'll use "tei" as the prefix for this namespace.
             XmlNamespaceManager nsmgr = new XmlNamespaceManager(xmlDoc.NameTable);
             nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
 
-            // Select ALL <ptr> nodes that are specifically within <relatedItem type="reviews">.
-            // Use SelectNodes to get a collection of matching nodes.
-            // The XPath now uses the "tei" prefix for elements within that namespace.
-            XmlNodeList ptrNodes = xmlDoc.SelectNodes("//tei:relatedItem[@type='reviews']/tei:bibl/tei:ptr[@target]", nsmgr);
+            XmlNodeList ptrNodes = xmlDoc.SelectNodes("/tei:bibl/tei:relatedItem[@type='reviews']/tei:bibl/tei:ptr[@target]", nsmgr);
 
             if (ptrNodes != null && ptrNodes.Count > 0)
             {
@@ -866,7 +885,7 @@ public class PapyriCRChecker
         {
             if (IsBiblRootOfTypeReview(file.PNFileName))
             {
-                reviewFiles.Add(file);
+                if(reviewFiles.All(x => x.PNFileName != file.PNFileName)) reviewFiles.Add(file);
             }
         }
     

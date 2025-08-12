@@ -82,7 +82,7 @@ public class CRReviewData
     private string startingPath { get; set; }
     
     public XMLDataEntry Source { get; }
-    public string IDNumber { get; } = "[NONE]";
+    public string IDNumber { get; set; } = "[NONE]";
     public string Forename { get; } = "[NONE]";
     public string Lastname { get; } = "[NONE]";
     public string Issue { get; } = "[NONE]";

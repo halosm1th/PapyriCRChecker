@@ -52,7 +52,7 @@ public class ParsedXMLReviewData
     /// </summary>
     /// <param name="pnNumber">The path to the XML file.</param>
     /// <returns>The extracted journal name as a string, or null if not found or an error occurs.</returns>
-     public static string ExtractJournalNameFromCrSeg(string filePath)
+     public static string ExtractJournalNameFromCRSeg(string filePath)
     {
         XDocument xmlDoc = LoadXmlDocument(filePath);
         if (xmlDoc == null)
@@ -62,7 +62,7 @@ public class ParsedXMLReviewData
 
         // Find the text content of the <seg subtype="cr"> element
         string segText = (string)xmlDoc.Descendants(teiNs + "seg")
-                                       .Where(s => (string)s.Attribute("subtype") == "cr")
+                                       .Where(s => (string)s.Attribute("subtype") == "publication")
                                        .FirstOrDefault();
 
         if (!string.IsNullOrEmpty(segText))
@@ -129,19 +129,34 @@ public class ParsedXMLReviewData
         foreach (var reviewTarget in reviewTargetPns)
         {
             var file = PapyriCRChecker.LoadDoc(reviewTarget);
-            if (file == null)
+            if (file != null)
             {
                 var reviewer = PapyriCRChecker.ExtractAuthorSurname(file, reviewTarget);
                 var pages = PapyriCRChecker.ExtractPageRanges(file, reviewTarget);
                 var date = PapyriCRChecker.ExtractDate(file, reviewTarget);
-                var location = ExtractJournalNameFromCrSeg(reviewTarget);
-                var review = new XMLReviewInfo(reviewer, location, date, pages, reviewTarget);
+                var journal = GetJounralName(reviewTarget);
+                var review = new XMLReviewInfo(reviewer, journal, date, pages, reviewTarget);
                 targets.Add(review);
             }
         }
         
         return targets;
         
+    }
+
+    private string GetJounralName(string reviewTarget)
+    {
+        var doc = PapyriCRChecker.LoadDoc(reviewTarget);
+        if (doc == null) throw new FileNotFoundException($"Could not find file: {reviewTarget}");
+        
+        XmlNamespaceManager nsmgr = new XmlNamespaceManager(doc.NameTable);
+        nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
+        // Find the text content of the <seg subtype="cr"> element
+        XmlNode pubNode = doc.SelectSingleNode("//tei:seg[@subtype='publication']", nsmgr);
+        if(pubNode == null) return ExtractJournalNameFromCRSeg(reviewTarget);
+
+        var publication = pubNode.InnerText.Split(',')[0];
+        return publication;
     }
 
     public List<XMLReviewInfo> ReviewTargetPN { get; set; }
