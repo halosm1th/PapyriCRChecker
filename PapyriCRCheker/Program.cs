@@ -9,6 +9,7 @@ using DefaultNamespace;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using PNCheckNewXMLs;
+using System.CommandLine;
 
 public class PapyriCRChecker
 {
@@ -16,11 +17,88 @@ public class PapyriCRChecker
     public static void Main(string[] args)
     {
         ExcelPackage.License.SetNonCommercialPersonal("Thomas");
-        
         var logger = new Logger();
+        Console.WriteLine("Logger creating, handling arguments");
+        logger.Log("Logger creating, handling arguments");
+        
+         var helpOption = new Option<bool>(
+                name: "--menu",
+                description: "Show help menu.",
+                getDefaultValue: () => false
+            );
+            helpOption.AddAlias("-h");
+
+            var startYearOption = new Option<string>(
+                name: "--start",
+                description: "Show help menu.",
+                getDefaultValue: () => "1"
+            );
+            helpOption.AddAlias("-sf");
+            
+            var endYearOption = new Option<string>(
+                name: "--end",
+                description: "Show help menu.",
+                getDefaultValue: () => "98"
+            );
+            helpOption.AddAlias("-ef");
+            
+            // Create the root command for the application
+            var rootCommand =
+                new RootCommand(
+                    "Name checker, runs against files to see if the author and editor names are properly formated.")
+                {
+                    helpOption,
+                    startYearOption,
+                    endYearOption
+                };
+
+
+            // Set the handler for the root command. This action will be executed when the command is invoked.
+            rootCommand.SetHandler((context) =>
+            {
+                var showHelp = context.ParseResult.GetValueForOption(helpOption);
+                if (showHelp)
+                {
+                    if (rootCommand.Description != null) context.Console.Out.Write(rootCommand.Description+ "\n");
+                    context.ExitCode = 0;
+                    rootCommand.Invoke("-h"); // force internal help logic
+                    Environment.Exit(context.ExitCode);
+                }
+
+                // Retrieve the parsed values for each option
+                var startYear = context.ParseResult.GetValueForOption(startYearOption) ?? "1";
+                var endYear = context.ParseResult.GetValueForOption(endYearOption) ?? "98";
+
+                logger.Log("Parsing args completed.");
+                Console.WriteLine($"Args parsed. Start Folder: {startYear}, End Folder: {endYear}.");
+                logger.Log($"Start Folder: {startYear}, End Folder: {endYear}");
+
+                
+                Core(logger, startYear, endYear);
+                
+                /***
+                
+                Console.WriteLine("Have you pulled the latest version of IDP_DATA? (y/n)");
+                var input = Console.ReadLine().ToLower();
+                if (input == "y")
+                {
+                    // If all validations pass, proceed with the core application logic
+                }
+                else
+                {
+                    Console.WriteLine("If you don't have the most up to date info, this program should not run. " +
+                                      "Please git pull for the newest info and then run me.");
+                }*/
+            });
+
+            rootCommand.Invoke(args);
+    }
+
+    private static void Core(Logger logger, string startNumb = "1", string endNumb = "98")
+    {
         var directory = FindBiblioDirectory(logger);
 
-        var fileGatherer = new XMLEntryGatherer(directory, logger);
+        var fileGatherer = new XMLEntryGatherer(directory, logger, startNumb, endNumb);
         filesFromBiblio  = fileGatherer.GatherEntries();
         var reviewFiles = GetReviewFiles(filesFromBiblio);
         var parsedXmlReviews  = ParseXMLFiles(reviewFiles);
@@ -59,7 +137,17 @@ public class PapyriCRChecker
         {
             lastID++;
             review.IDNumber = lastID.ToString();
-            
+            var dir = FindBiblioDirectory(logger);
+            dir = Path.Combine(dir, "98");
+            dir = Path.Combine(dir, $"{review.IDNumber}.xml");
+            //TODO actually save the new PN reviews as xml
+            Console.WriteLine($"Press Y if it should save the following xml to: {dir}.\n{review}");
+            var key = Console.ReadKey();
+            if (key.Key == ConsoleKey.Y)
+            {
+                    File.WriteAllText(dir, 
+                        review.ToString());
+            }
         }
         
         throw new NotImplementedException();
@@ -83,13 +171,18 @@ public class PapyriCRChecker
                 var saveTxt = $"{firstname} {surname} {publicationInformation}\n";
 
                 Console.WriteLine(saveTxt);
-                if (File.Exists(saveFile))
+                Console.WriteLine("Press Y if should save?");
+                var key = Console.ReadKey();
+                if (key.Key == ConsoleKey.Y)
                 {
-                    File.AppendAllText(saveFile,saveTxt);
-                }
-                else
-                {
-                    File.WriteAllText(saveFile, saveTxt);
+                    if (File.Exists(saveFile))
+                    {
+                        File.AppendAllText(saveFile, saveTxt);
+                    }
+                    else
+                    {
+                        File.WriteAllText(saveFile, saveTxt);
+                    }
                 }
             }
         }
@@ -172,7 +265,7 @@ public class PapyriCRChecker
                     Console.WriteLine(
                         $"surname | {current.Lastname ?? "NOT FOUND"} | {matchedReview.AuthorsSurname} | {current.Lastname?.Equals(matchedReview.AuthorsSurname) ?? false}");
                     Console.WriteLine(
-                        $"publication | {current.JournalID} | {matchedReview.AppearsInTargetPN} | {current.AppearsInID.Equals(matchedReview.AppearsInTargetPN)}");
+                        $"publication | {current.JournalID} | {matchedReview.AppearsInTargetPN} | {current.AppearsInText.Equals(matchedReview.AppearsInTargetPN)}");
                     Console.WriteLine(
                         $"page range | {current.PageRange ?? "NOT FOUND"} | {matchedReview.PageRange} | {current.PageRange?.Equals(matchedReview.PageRange) ?? false}");
                     Console.WriteLine(
@@ -225,7 +318,7 @@ public class PapyriCRChecker
                     Console.WriteLine("------------------------------------------------------------------------");
                     Console.WriteLine($"{current.Source.PNNumber}-{i}-{current.AppearsInTargetPN} | PN | BP | Match");
                     Console.WriteLine($"surname | {current.AuthorsSurname ?? "NOT FOUND"} | {matchedReview.Lastname} | {current.AuthorsSurname?.Equals(matchedReview.Lastname) ?? false}");
-                    Console.WriteLine($"publication | {current.AppearsInTargetPN} | {matchedReview.AppearsInID} | {current.AppearsInTargetPN.Equals(matchedReview.AppearsInID)}");
+                    Console.WriteLine($"publication | {current.AppearsInTargetPN} | {matchedReview.AppearsInText} | {current.AppearsInTargetPN.Equals(matchedReview.AppearsInText)}");
                     Console.WriteLine($"page range | {current.PageRange ?? "NOT FOUND"} | {matchedReview.PageRange}-{matchedReview.PageEnd} | {current.PageRange?.Equals(matchedReview.PageRange) ?? false}");
                     Console.WriteLine($"date (not compared) | {current.Date ?? "NOT FOUND"} | {matchedReview.Date} | {current.Date?.Equals(matchedReview.Date) ?? false}");
                 }
@@ -410,6 +503,7 @@ public class PapyriCRChecker
 
         foreach (var entry in biblioFiles)
         {
+            Console.WriteLine($"Checking reviews on: {entry.PNFileName}");
             var xmlMatches
                 = parsedXmlReviews.Where(x
                     => x.Source.PNNumber == entry.PNNumber).ToList();
@@ -530,8 +624,9 @@ public class PapyriCRChecker
         List<ParsedXMLReviewData> parsedXmlReviews = new List<ParsedXMLReviewData>();
         foreach (var reviewFile in reviewFiles)
         {
+            Console.WriteLine($"Working on file: {reviewFile.PNFileName}");
             var doc = LoadDoc(reviewFile.PNFileName);
-            if (doc != null)
+            if (doc != null && parsedXmlReviews.All(x => x.Source.PNFileName != reviewFile.PNFileName))
             {
                 var reviewNumbesrFromBiblio = ExtractReviewBiblioIds(doc, reviewFile.PNFileName);
                 var reviewFilePath = GetReviewFilePaths(reviewNumbesrFromBiblio);
@@ -543,7 +638,7 @@ public class PapyriCRChecker
                 var parsedData = new ParsedXMLReviewData(reviewFilePath,
                     appearsInPath, authorSurname, pages, date, reviewFile);
 
-                parsedXmlReviews.Add(parsedData);
+                if(!parsedXmlReviews.Contains(parsedData)) parsedXmlReviews.Add(parsedData);
             }
             else
             {
@@ -758,22 +853,25 @@ public class PapyriCRChecker
             XmlNamespaceManager nsmgr = new XmlNamespaceManager(xmlDoc.NameTable);
             nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
 
-            // Select the <biblScope> node with type="pp" using the namespace prefix
-            XmlNode pageRangeNode = xmlDoc.SelectSingleNode("/tei:bibl/tei:biblScope[@type='pp']", nsmgr);
-            XmlNode colRangeNode = xmlDoc.SelectSingleNode("/tei:bibl/tei:biblScope[@type='col']", nsmgr);
-            XmlNode pageCount = xmlDoc.SelectSingleNode("/tei:bibl/tei:note[@type='pageCount']", nsmgr);
+            // Use a single, more efficient XPath to get all potential nodes at once
+            XmlNodeList potentialNodes = xmlDoc.SelectNodes(
+                "/tei:bibl/tei:biblScope[@type='pp'] | /tei:bibl/tei:biblScope[@type='col'] | /tei:bibl/tei:note[@type='pageCount']",
+                nsmgr
+            );
 
-            if (pageRangeNode != null)
+            if (potentialNodes.Count > 0)
             {
-                return pageRangeNode.InnerText;
-            }else if (pageCount != null)
-            {
-                return pageCount.InnerText;
-            }
-
-            if (colRangeNode != null)
-            {
-                return colRangeNode.InnerText.Replace("coll. ", "");
+                foreach (XmlNode node in potentialNodes)
+                {
+                    if (node.Attributes["type"]?.Value == "pp" || node.Attributes["type"] == null)
+                    {
+                        return node.InnerText;
+                    }
+                    else if (node.Attributes["type"]?.Value == "col")
+                    {
+                        return node.InnerText.Replace("coll. ", "");
+                    }
+                }
             }
             else
             {

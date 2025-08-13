@@ -6,7 +6,7 @@ namespace BPtoPNDataCompiler;
 public class CRReviewData
 {
     public CRReviewData(XMLDataEntry originalEntry, string pageRange, string year, string cr, string idNumber, string startingPathToCsVv,
-        string articleReviewing, Logger _logger)
+        string articleReviewing, string articleNumber, Logger _logger)
     {
         Source = originalEntry;
         logger = _logger;
@@ -74,7 +74,8 @@ public class CRReviewData
             logger.Log($"The reviews for {articleReviewing} may need to be created manually");
         }
 
-        AppearsInID = articleReviewing;
+        AppearsInID = articleNumber;
+        AppearsInText =   articleReviewing;
     }
 
     private Logger logger { get; }
@@ -87,6 +88,7 @@ public class CRReviewData
     public string Lastname { get; } = "[NONE]";
     public string Issue { get; } = "[NONE]";
     public string JournalID { get; } = "[NONE]";
+    public string AppearsInText { get; } = "[NONE]";
     public string AppearsInID { get; } = "[NONE]";
     public string CRData { get; } = "[NONE]";
     public string Date { get; } = "[NONE]";
@@ -119,17 +121,30 @@ public class CRReviewData
     {
         try
         {
-            if (journal.Contains("-") || journal.Contains("p."))
+            if (journal.Contains("-") || journal.Contains("p.") || string.IsNullOrEmpty(journal))
                 Console.WriteLine($"There was an error parsing the journal for: {CRData}");
             else
             {
+                
+                if(journal == "") 
+                    Console.WriteLine("test");
+                
                 var listOFJournals = GetJounrals();
 
                 try
                 {
-                    var id = listOFJournals[journal];
+                    if (journal != " " && !string.IsNullOrEmpty(journal))
+                    {
+                        journal = journal.Replace("&amp;", "&");
+                            var id = listOFJournals[journal];
 
-                    return id;
+                            return id;
+                    }
+                    else
+                    {
+                        Console.WriteLine("No journal name found?");
+                        return "-1";
+                    }
                 }
                 catch (Exception e)
                 {

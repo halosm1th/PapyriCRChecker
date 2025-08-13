@@ -61,14 +61,14 @@ public class CRReviewParser
     }
 
     private List<CRReviewData> CreateEntriesFromCR(
-        List<(string year, string pageRange, string cr, string articleReviewed)> entriesNotInXml,
+        List<(string year, string pageRange, string cr, string articleReviewed, string articleNumber)> entriesNotInXml,
         ref int nextNumb, XMLDataEntry baseEntry)
     {
         var results = new List<CRReviewData>();
         foreach (var entry in entriesNotInXml)
         {
             results.Add(new CRReviewData(baseEntry, entry.pageRange, entry.year, entry.cr, nextNumb.ToString(), PathToJournalCSV,
-                entry.articleReviewed, logger));
+                entry.articleReviewed, entry.articleNumber, logger));
             nextNumb++;
         }
 
@@ -112,10 +112,10 @@ public class CRReviewParser
         return noMatch;
     }
 
-    private List<(string year, string pageRange, string cr, string articleReviewed)> GetValuesToBuildCRReviewDataFromXMLDataEntry(string? cr,
+    private List<(string year, string pageRange, string cr, string articleReviewed, string articleNumber)> GetValuesToBuildCRReviewDataFromXMLDataEntry(string? cr,
         string src)
     {
-        var pageRanges = new List<(string year, string range, string cr, string articleReviewed)>();
+        var pageRanges = new List<(string year, string range, string cr, string articleReviewed, string articleNumber)>();
         cr = cr.Replace("C.R. par ", "");
         cr = cr.Replace("C.R. ", ""); 
         var matches = cr.Split(" - ");
@@ -132,11 +132,11 @@ public class CRReviewParser
 
                 if (pagesWithPP.Success)
                 {
-                    pageRanges.Add((year.Value, pagesWithPP.Value, match, cr));
+                    pageRanges.Add((year.Value, pagesWithPP.Value, match, cr, src));
                     
                 }else if (pages.Success)
                 {
-                    pageRanges.Add((year.Value, pages.Value, match, cr));
+                    pageRanges.Add((year.Value, pages.Value, match, cr, src));
                 }
             }
         }

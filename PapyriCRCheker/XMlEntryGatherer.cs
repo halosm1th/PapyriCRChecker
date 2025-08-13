@@ -22,10 +22,14 @@ public class XMLEntryGatherer
         {"title:level", (node, entry) => entry.TitleLevel = node.GetAttribute("level") },
     };
 
-    public XMLEntryGatherer(string path, Logger logger)
+    public string StartFolder { get; }
+    public string EndFolder { get; }
+    public XMLEntryGatherer(string path, Logger logger, string startFolderNumber = "1", string endFolderNumber = "98")
     {
         logger.LogProcessingInfo($"Created new XMLEntryGatherer with path: {path}");
         BiblioPath = path;
+        StartFolder = startFolderNumber;
+        EndFolder = endFolderNumber;
         this.logger = logger;
     }
 
@@ -119,12 +123,28 @@ public class XMLEntryGatherer
         try
         {
             foreach (var folder in Directory.GetDirectories(BiblioPath))
-            {
-                foreach (var entry in GetEntriesFromFolder(folder))
+            { 
+                int startNumb = Convert.ToInt32(StartFolder);
+                int endNumb = Convert.ToInt32(EndFolder);
+
+                int folderNumb = -1;
+                var foldNumb = folder.Split("\\idp.data\\Biblio\\");
+                if (int.TryParse(foldNumb[1], out folderNumb))
                 {
-                    //logger.Log($"Adding {entry.Title} from {folder} to entries");
-                    //logger.LogProcessingInfo($"Adding {entry.Title} from {folder} to entries");
-                    entries.Add(entry);
+                    if (folderNumb >= startNumb && folderNumb <= endNumb)
+                    {
+                        foreach (var entry in GetEntriesFromFolder(folder))
+                        {
+                            //logger.Log($"Adding {entry.Title} from {folder} to entries");
+                            //logger.LogProcessingInfo($"Adding {entry.Title} from {folder} to entries");
+                            entries.Add(entry);
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Folder {folder} is outside range {StartFolder}-{EndFolder}");
+                        logger.LogProcessingInfo($"Folder {folder} is outside range {StartFolder}-{EndFolder}");
+                    }
                 }
             }
         }
