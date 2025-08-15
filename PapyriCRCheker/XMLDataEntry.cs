@@ -1,11 +1,16 @@
-﻿namespace DefaultNamespace;
+﻿using System.Xml;
+
+namespace DefaultNamespace;
 
 public class XMLDataEntry : BPDataEntry
 {
-    public XMLDataEntry(string fileName, Logger logger) : base(null, logger)
+    public XMLDataEntry(string fileName, Logger logger, XmlDocument document) : base(null, logger)
     {
         PNFileName = fileName;
+        BaseDocument = document;
     }
+    
+    public XmlDocument BaseDocument { get; set; }
 
     public bool HasNo => HasBPNum;
     public string No => BPNumber ?? "0000-0000";

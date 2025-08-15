@@ -109,7 +109,7 @@ public class PapyriCRChecker
         var lastPN = 0; //GetLastPN(-1, logger, filesFromBiblio);
         var parsedCRReviews = crParser.ParseReviews(CRFiles, ref lastPN);
         
-        var matchedReviews = MatchReviews(parsedXmlReviews, parsedCRReviews, filesFromBiblio);
+        var matchedReviews = MatchReviewsToSharedSource(parsedXmlReviews, parsedCRReviews, filesFromBiblio);
         SaveMatchResultsInSpreadsheet(matchedReviews);
 
         foreach (var match in matchedReviews)
@@ -265,7 +265,7 @@ public class PapyriCRChecker
                     Console.WriteLine(
                         $"surname | {current.Lastname ?? "NOT FOUND"} | {matchedReview.AuthorsSurname} | {current.Lastname?.Equals(matchedReview.AuthorsSurname) ?? false}");
                     Console.WriteLine(
-                        $"publication | {current.JournalID} | {matchedReview.AppearsInTargetPN} | {current.AppearsInText.Equals(matchedReview.AppearsInTargetPN)}");
+                        $"publication | {current.JournalID} | {matchedReview.AppearsInTargetPN} | {current.AppearsInID.Equals(matchedReview.AppearsInTargetPN)}");
                     Console.WriteLine(
                         $"page range | {current.PageRange ?? "NOT FOUND"} | {matchedReview.PageRange} | {current.PageRange?.Equals(matchedReview.PageRange) ?? false}");
                     Console.WriteLine(
@@ -318,7 +318,7 @@ public class PapyriCRChecker
                     Console.WriteLine("------------------------------------------------------------------------");
                     Console.WriteLine($"{current.Source.PNNumber}-{i}-{current.AppearsInTargetPN} | PN | BP | Match");
                     Console.WriteLine($"surname | {current.AuthorsSurname ?? "NOT FOUND"} | {matchedReview.Lastname} | {current.AuthorsSurname?.Equals(matchedReview.Lastname) ?? false}");
-                    Console.WriteLine($"publication | {current.AppearsInTargetPN} | {matchedReview.AppearsInText} | {current.AppearsInTargetPN.Equals(matchedReview.AppearsInText)}");
+                    Console.WriteLine($"publication | {current.AppearsInTargetPN} | {matchedReview.AppearsInID} | {current.AppearsInTargetPN.Equals(matchedReview.AppearsInID)}");
                     Console.WriteLine($"page range | {current.PageRange ?? "NOT FOUND"} | {matchedReview.PageRange}-{matchedReview.PageEnd} | {current.PageRange?.Equals(matchedReview.PageRange) ?? false}");
                     Console.WriteLine($"date (not compared) | {current.Date ?? "NOT FOUND"} | {matchedReview.Date} | {current.Date?.Equals(matchedReview.Date) ?? false}");
                 }
@@ -496,7 +496,7 @@ public class PapyriCRChecker
         }
     }
 
-    private static List<MatchedReviews> MatchReviews(List<ParsedXMLReviewData> parsedXmlReviews, 
+    private static List<MatchedReviews> MatchReviewsToSharedSource(List<ParsedXMLReviewData> parsedXmlReviews, 
         List<CRReviewData> parsedCrReviews, List<XMLDataEntry> biblioFiles)
     {
         var reviews = new List<MatchedReviews>();
@@ -513,8 +513,37 @@ public class PapyriCRChecker
 
             if (xmlMatches.Count > 0 || crMatches.Count > 0)
             {
-                var match = new MatchedReviews(entry, xmlMatches, crMatches);
-                reviews.Add(match);
+                var xmlReviews = new List<ParsedXMLReviewData>();
+                var crReviews = new List<CRReviewData>();
+                foreach (var match in crMatches)
+                {
+                    if (parsedXmlReviews.Any(x => x.AuthorsSurname == match.Lastname
+                                                  && x.PageRange == match.PageRange))
+                    {
+                        var matches = xmlMatches.Where(x => x.AuthorsSurname == match.Lastname
+                                                            && x.PageRange == match.PageRange
+                                                            && x.Source == match.Source);
+                        xmlReviews.AddRange(matches);
+                        
+                    }
+                }
+                
+                foreach (var match in xmlMatches)
+                {
+                    if (parsedCrReviews.Any(x => match.AuthorsSurname == x.Lastname
+                                                  && x.PageRange == match.PageRange
+                                                  && x.Source == match.Source))
+                    {
+                        var matches = parsedCrReviews.Where(x => match.AuthorsSurname == x.Lastname
+                                                                 && x.PageRange == match.PageRange
+                                                                 && x.Source == match.Source);
+                        crReviews.AddRange(matches);
+                        
+                    }
+                }
+                
+                var saveMatch = new MatchedReviews(entry, xmlReviews, crReviews, parsedXmlReviews, parsedCrReviews);
+                reviews.Add(saveMatch);
             }
         }
         

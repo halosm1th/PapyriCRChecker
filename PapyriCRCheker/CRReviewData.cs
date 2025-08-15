@@ -16,8 +16,20 @@ public class CRReviewData
         startingPath = startingPathToCsVv;
         CRData = cr;
 
+        var nameParts = new string[0];
         var name = cr.Split(",")[0];
-        var nameParts = name.Split(" ");
+        if(name.Contains("."))
+        {
+            nameParts = name.Split(".");
+            nameParts[0] += ".";
+        }
+        name = "";
+        for (int i = 0; i < nameParts.Length-1; i++)
+        {
+            name += nameParts[i] + " ";
+        }
+        
+        nameParts = name.Split(" ");
         Forename = nameParts[0];
         var lastName = "";
         for (int i = 1; i < nameParts.Length; i++)

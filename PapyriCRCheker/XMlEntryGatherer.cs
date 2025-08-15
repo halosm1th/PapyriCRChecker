@@ -41,9 +41,9 @@ public class XMLEntryGatherer
         try
         {
             logger.LogProcessingInfo($"Getting entry at {filePath}");
-            var entry = new XMLDataEntry(filePath, logger);
             var doc = new XmlDocument();
             doc.Load(filePath);
+            var entry = new XMLDataEntry(filePath, logger, doc);
             logger.LogProcessingInfo("Entry loaded.");
 
             foreach (var rawNode in doc?.DocumentElement?.ChildNodes)
