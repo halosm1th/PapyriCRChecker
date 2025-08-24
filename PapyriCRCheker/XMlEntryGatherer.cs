@@ -33,9 +33,27 @@ public class XMLEntryGatherer
         this.logger = logger;
     }
 
+    public List<XMLDataEntry> Entries { get; protected set; } = new();
     public string BiblioPath { get; set; }
     private Logger logger { get; }
 
+    public string GetHighestXmlEntryValue()
+    {
+        
+        var entries = Entries.OrderBy(x => x.PNNumber);
+
+        var largestPN = 0;
+        foreach (var entry in entries)
+        {
+            if (Int32.TryParse(entry.PNNumber, out int numb))
+            {
+                if (numb > largestPN) largestPN = numb;
+            }
+        }
+
+        return Convert.ToString(largestPN);
+    }
+    
     private XMLDataEntry? GetEntry(string filePath)
     {
         try
@@ -118,6 +136,8 @@ public class XMLEntryGatherer
 
     public List<XMLDataEntry> GatherEntries()
     {
+        if (Entries.Count > 0) return Entries;
+        
         //logger.LogProcessingInfo("Gathering XMl Entries");
         var entries = new List<XMLDataEntry>();
         try
@@ -155,6 +175,7 @@ public class XMLEntryGatherer
         }
 
         logger.LogProcessingInfo($"Gathered {entries.Count} XML entries for processing.");
+        Entries = entries;
         return entries;
     }
 }

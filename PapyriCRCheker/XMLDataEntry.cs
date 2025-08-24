@@ -1,14 +1,21 @@
 ﻿using System.Xml;
+using BPtoPNDataCompiler;
 
 namespace DefaultNamespace;
 
 public class XMLDataEntry : BPDataEntry
 {
-    public XMLDataEntry(string fileName, Logger logger, XmlDocument document) : base(null, logger)
+    public XMLDataEntry(string fileName, Logger logger, XmlDocument document) 
+        : base(null, logger)
     {
         PNFileName = fileName;
         BaseDocument = document;
+        ParsedXMLReviews = new List<ParsedXMLReview>();
+        ParsedCRReviews = new List<CRReviewData>();
     }
+    
+    public List<ParsedXMLReview> ParsedXMLReviews { get; }
+    public List<CRReviewData> ParsedCRReviews { get; }
     
     public XmlDocument BaseDocument { get; set; }
 
@@ -227,5 +234,93 @@ public class XMLDataEntry : BPDataEntry
         sbandsegMatch = 9,
         titleMatch = 10,
         anneeMatch = 11
+    }
+
+    public (List<ParsedXMLReview>, List<CRReviewData>)? CompareReviews()
+    {
+        if (ParsedCRReviews.Count >= ParsedXMLReviews.Count) return MoreCRReviews();
+        else if (ParsedXMLReviews.Count >= ParsedCRReviews.Count) return MoreXMLReviws();
+
+        return null;
+    }
+
+    private (List<ParsedXMLReview>, List<CRReviewData>) MoreXMLReviws()
+    {
+
+        var unMatchedCrReviews = new List<CRReviewData>();
+        unMatchedCrReviews.AddRange(ParsedCRReviews);
+        var unMatchedXMLReviews = new List<ParsedXMLReview>();
+        unMatchedXMLReviews.AddRange(ParsedXMLReviews);
+
+        foreach (var review in ParsedXMLReviews)
+        {
+            if (ParsedCRReviews.Any(x =>
+                    review.ReviewPageRange == x.PageRange
+                    && x.Name.Contains(review.AuthorLastName ?? "None")
+                    && x.JournalID == review.DocumentAppearsInIDNumber ))
+            {
+                unMatchedXMLReviews.Remove(review);
+                
+                var match = ParsedCRReviews.First(x =>
+                    review.ReviewPageRange == x.PageRange
+                    && x.Name.Contains(review.AuthorLastName ?? "None")
+                    && x.JournalID == review.DocumentAppearsInIDNumber );
+                unMatchedCrReviews.Remove(match);
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"Matched: {review.ReviewPath} with {match.ArticleNumberCrIsReviewing}");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Could not find a match for: {review.ReviewPath} - {review.AuthorLastName} {review.ReviewDate}");
+                Console.ResetColor();
+            }
+        }
+
+        Console.WriteLine($"Was left with {unMatchedXMLReviews.Count} unmatched PN Reviews and {unMatchedCrReviews.Count} unmatched CR Reviews");
+        return (unMatchedXMLReviews, unMatchedCrReviews);
+    }
+
+    private (List<ParsedXMLReview>, List<CRReviewData>) MoreCRReviews()
+    {
+        var unMatchedCrReviews = new List<CRReviewData>();
+        unMatchedCrReviews.AddRange(ParsedCRReviews);
+        var unMatchedXMLReviews = new List<ParsedXMLReview>();
+        unMatchedXMLReviews.AddRange(ParsedXMLReviews);
+        
+
+        foreach (var review in ParsedCRReviews)
+        {
+            if (ParsedXMLReviews.Any(x =>
+                    x.ReviewPageRange == review.PageRange
+                    && review.Name.Contains(x.AuthorLastName ?? "[NONE]")
+                    && review.JournalID == x.DocumentAppearsInIDNumber ))
+            {
+                unMatchedCrReviews.Remove(review);
+                var xmlReview = ParsedXMLReviews.First(x =>
+                    x.ReviewPageRange == review.PageRange
+                    && review.Name.Contains(x.AuthorLastName ?? "[NONE]")
+                    && review.JournalID == x.DocumentAppearsInIDNumber);
+                unMatchedXMLReviews.Remove(xmlReview);
+                
+                var match = ParsedXMLReviews.First(x =>
+                    x.ReviewPageRange == review.PageRange
+                    && review.Name.Contains(x.AuthorLastName ?? "[NONE]")
+                    && review.JournalID == x.DocumentAppearsInIDNumber);
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"Matched: {review.Name} with {match.ReviewPath}");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Could not find a match for: {review.Name} ({review.PageRange}) {review.JournalName} {review.Issue}");
+                Console.ResetColor();
+            }
+        }
+
+        Console.WriteLine($"Was left with {unMatchedCrReviews.Count} unmatched CR Reviews and {unMatchedXMLReviews.Count} unmatched XML Reviews");
+        return (unMatchedXMLReviews, unMatchedCrReviews);
     }
 }

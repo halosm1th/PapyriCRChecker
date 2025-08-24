@@ -5,48 +5,45 @@ namespace BPtoPNDataCompiler;
 
 public class CRReviewData
 {
-    public CRReviewData(XMLDataEntry originalEntry, string pageRange, string year, string cr, string idNumber, string startingPathToCsVv,
-        string articleReviewing, string articleNumber, Logger _logger)
+    
+    private Logger logger { get; }
+    
+    public XMLDataEntry Source { get; }
+    public string IDNumber { get; set; } = "[NONE]";
+    
+    //TODO Make it so that the name gets split, and name becomes => $"{Forename} {Lastname}";
+    //This means figuring out how to split the name
+    public string Name { get; } = "[NONE]";
+    public string Forename { get; } = "[NONE]";
+    public string Lastname { get; } = "[NONE]";
+    
+    
+    public string Issue { get; } = "[NONE]";
+    public string ArticleNumberCrIsReviewing { get; } = "[NONE]";
+    public string JournalID { get; } = "[NONE]";
+    public string JournalName { get; } = "[NONE]";
+    public string CRData { get; } = "[NONE]";
+    public string Date { get; } = "[NONE]";
+    public string PageStart { get; } = "[NONE]";
+    public string PageEnd { get; } = "[NONE]";
+    
+    public string PageRange  => $"{PageStart.Replace("pp. ", "").Replace(" ", "")}-{PageEnd}";
+    
+    private static Dictionary<string, string> _journals { get; set; }
+    
+    public CRReviewData(XMLDataEntry sourceOfCREntry, string name, string pageRange, string year,  
+        string journalName, string journalNumber, string articleNumberCRReviewing, string baseText, Logger _logger)
     {
-        Source = originalEntry;
+        Source = sourceOfCREntry;
         logger = _logger;
-        //Thomas Schmidt, MusHelv 68 (2011) pp. 232-233.
-        //Lajos Berkes, Gnomon 85 (2013) pp. 464-466.
-        IDNumber = idNumber;
-        startingPath = startingPathToCsVv;
-        CRData = cr;
-
-        var nameParts = new string[0];
-        var name = cr.Split(",")[0];
-        var lastName = "";
-        if(name.Contains("."))
-        {
-            nameParts = name.Split(".");
-            nameParts[0] += ".";
-            
-            Forename = nameParts[0];
-            name = name.Replace(Forename, "");
-            nameParts = name.Split(" ");
-            
-            for (int i = 1; i < nameParts.Length; i++)
-            {
-                lastName += nameParts[i] + " ";
-            }
-        }
-        else
-        {
-            nameParts = name.Split(" ");
-            Forename = nameParts[0];
-            for (int i = 1; i < nameParts.Length; i++)
-            {
-                lastName += nameParts[i] + " ";
-            }
-            
-        }
-
-        if (lastName.Length > 0) Lastname = lastName.Trim();
-        else Lastname = "ERROR WITH LAST NAME";
+        Issue = journalNumber;
         Date = year;
+        ArticleNumberCrIsReviewing = articleNumberCRReviewing;
+        JournalName = journalName;
+        JournalID = GetJournalID(journalName);
+        Name = name;
+        CRData = baseText;
+        
         var pages = new string[0];
 
         if (pageRange.Contains("-"))
@@ -71,58 +68,13 @@ public class CRReviewData
             }
         }
 
-        var issueRegex = new Regex(@" \d+ ");
-        var issueMatch = issueRegex.Match(cr);
-        Issue = issueMatch.Value;
-
-
-        var prePageRange = cr.Split(pageRange)[0];
-        var journal = prePageRange.Split(",")[^1];
-        journal = journal.Split(year)[0].Replace("(", "");
-        if(!string.IsNullOrEmpty(Issue))  journal = journal.Replace(Issue, "").Trim();
-        if(journal.Contains(":")) journal = journal.Replace(":", "");
-        
-        JournalID = GetJournalID(journal);
-            
-
-        if (journal == "-1")
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"The reviews for {articleReviewing} may need to be created manually");
-            Console.ResetColor();
-            logger.Log($"The reviews for {articleReviewing} may need to be created manually");
-        }
-
-        AppearsInID = articleNumber;
-        AppearsInText =   articleReviewing;
     }
-
-    private Logger logger { get; }
-
-    private string startingPath { get; set; }
-    
-    public XMLDataEntry Source { get; }
-    public string IDNumber { get; set; } = "[NONE]";
-    public string Forename { get; } = "[NONE]";
-    public string Lastname { get; } = "[NONE]";
-    public string Issue { get; } = "[NONE]";
-    public string JournalID { get; } = "[NONE]";
-    public string AppearsInText { get; } = "[NONE]";
-    public string AppearsInID { get; } = "[NONE]";
-    public string CRData { get; } = "[NONE]";
-    public string Date { get; } = "[NONE]";
-    public string PageStart { get; } = "[NONE]";
-    public string PageEnd { get; } = "[NONE]";
-    
-    public string PageRange  => $"{PageStart.Replace("pp. ", "").Replace(" ", "")}-{PageEnd}";
-    
-    private static Dictionary<string, string> _journals { get; set; }= null;
 
     private Dictionary<string, string> GetJounrals()
     {
         if (_journals == null || _journals.Count == 0)
         {
-            var file = File.ReadAllLines(startingPath + "/PN_Journal_IDs.csv");
+            var file = File.ReadAllLines(Directory.GetCurrentDirectory() + "/PN_Journal_IDs.csv");
             var listOFJournals = new Dictionary<string, string>();
             foreach (var line in file)
             {
@@ -146,7 +98,7 @@ public class CRReviewData
             {
                 
                 if(journal == "") 
-                    Console.WriteLine("test");
+                    Console.WriteLine("no journal given");
                 
                 var listOFJournals = GetJounrals();
 
@@ -154,10 +106,25 @@ public class CRReviewData
                 {
                     if (journal != " " && !string.IsNullOrEmpty(journal))
                     {
-                        journal = journal.Replace("&amp;", "&");
-                            var id = listOFJournals[journal];
+                        if (journal.Contains(","))
+                        {
+                            journal = journal.Replace(",", "");
+                        }
+                        
+                        var id = "";
+                        if (journal.Contains("N.S."))
+                        {
 
-                            return id;
+                            var shortName = journal.Replace(" N.S.", "").Trim();
+                            if(listOFJournals.Any(x => x.Key == journal))
+                                id = listOFJournals[journal];
+                            else if (listOFJournals.Any(x => x.Key == shortName))
+                                id = listOFJournals[shortName];
+                        }
+                        else
+                            id = listOFJournals[journal];
+
+                        return id;
                     }
                     else
                     {
@@ -195,10 +162,7 @@ public class CRReviewData
         return $"""
                 <?xml version="1.0" encoding="UTF-8"?>
                 <bibl xmlns="http://www.tei-c.org/ns/1.0" xml:id="b{IDNumber}" type="review">
-                  <author>
-                      <forename>{Forename}</forename>
-                      <surname>{Lastname}</surname>
-                   </author>
+                  <author>{Name}</author>
                    <date>{Date}</date>
                   <biblScope type="pp" from="{PageStart}" to="{PageEnd}">{PageStart}-{PageEnd}</biblScope>
                   <relatedItem type="appearsIn">
@@ -208,10 +172,10 @@ public class CRReviewData
                          <!--ignore - stop-->
                       </bibl>
                   </relatedItem>
-                  <biblScope type="issue">{Issue}</biblScope>
+                  <biblScope type="issue">{Issue.Trim()}</biblScope>
                   <relatedItem type="reviews" n="1">
                       <bibl>
-                         <ptr target="https://papyri.info/biblio/{AppearsInID}"/>
+                         <ptr target="https://papyri.info/biblio/{ArticleNumberCrIsReviewing}"/>
                          <!--ignore - start, i.e. SoSOL users may not edit this-->
                          <!--ignore - stop-->
                       </bibl>

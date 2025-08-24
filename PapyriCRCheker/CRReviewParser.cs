@@ -67,8 +67,8 @@ public class CRReviewParser
         var results = new List<CRReviewData>();
         foreach (var entry in entriesNotInXml)
         {
-            results.Add(new CRReviewData(baseEntry, entry.pageRange, entry.year, entry.cr, nextNumb.ToString(), PathToJournalCSV,
-                entry.articleReviewed, entry.articleNumber, logger));
+           // results.Add(new CRReviewData(baseEntry, entry.pageRange, entry.year, entry.cr, nextNumb.ToString(), PathToJournalCSV,
+           //     entry.articleReviewed, entry.articleNumber, logger));
             nextNumb++;
         }
 
@@ -123,9 +123,9 @@ public class CRReviewParser
         {
             foreach (var match in matches)
             {
-                var yearRegex = new Regex(@"\b(19|20)\d{2}\b");
                 var pageWithPPRegex = new Regex(@"((pp.|p. ) \d+-\d+)");
                 var pageRegex = new Regex(@"\d+-\d+");
+                var yearRegex = new Regex(@"\b(19|20)\d{2}\b");
                 var year = yearRegex.Match(match);
                 var pagesWithPP = pageWithPPRegex.Match(match);
                 var pages = pageRegex.Match(pagesWithPP.Value);
@@ -155,64 +155,6 @@ public class CRReviewParser
         }
 
         return entries;
-    }
-
-    private List<string> GetCR(XMLDataEntry entryPathItem2)
-    {
-        // Initialize a new XmlDocument object.
-        var xmlDoc = new XmlDocument();
-
-        // Load the XML file from the path specified in entryPathItem2.PNFileName.
-        // This will parse the XML content into a DOM (Document Object Model) tree.
-        xmlDoc.Load(entryPathItem2.PNFileName);
-
-        // Initialize a list to store the extracted 'target' attribute values.
-        List<string> ptrTargets = new List<string>();
-
-        // Create an XmlNamespaceManager to handle XML namespaces.
-        // The XML document uses a default namespace (xmlns="http://www.tei-c.org/ns/1.0").
-        // To query elements within this namespace using XPath, we need to associate a prefix
-        // with the namespace URI.
-        XmlNamespaceManager nsmgr = new XmlNamespaceManager(xmlDoc.NameTable);
-
-        // Add the TEI namespace with a chosen prefix (e.g., "tei").
-        // This prefix will be used in the XPath expression to correctly identify elements
-        // that belong to this namespace.
-        nsmgr.AddNamespace("tei", "http://www.tei-c.org/ns/1.0");
-
-        // Select all 'ptr' nodes that are direct children of 'bibl' nodes,
-        // which are themselves direct children of 'relatedItem' nodes,
-        // anywhere in the document (indicated by '//').
-        // The XPath expression now uses the 'tei' prefix for all elements
-        // to correctly match elements within the TEI namespace.
-        XmlNodeList ptrNodes = xmlDoc.SelectNodes("//tei:relatedItem[@type='reviews']/tei:bibl/tei:ptr", nsmgr);
-
-        if (ptrNodes.Count == 0)
-        {
-            Console.WriteLine($"Notice, Document {entryPathItem2.PNFileName} did not have any relatedItem nodes.");
-            logger.LogProcessingInfo($"Document {entryPathItem2.PNFileName} did not have any relatedItem nodes.");
-            Console.ResetColor();
-        }
-
-        // Iterate through each XmlNode found by the SelectNodes method.
-        foreach (XmlNode node in ptrNodes)
-        {
-            // Ensure the current node is indeed an element and its name is "ptr".
-            // This check adds robustness, though SelectNodes should return only elements matching the XPath.
-            if (node.NodeType == XmlNodeType.Element && node.Name == "ptr")
-            {
-                // Check if the "target" attribute exists for the current 'ptr' node.
-                if (node.Attributes["target"] != null)
-                {
-                    // If the "target" attribute exists, retrieve its value
-                    // and add it to our list of ptrTargets.
-                    ptrTargets.Add(node.Attributes["target"].Value);
-                }
-            }
-        }
-
-        // Return the list containing all collected 'target' attribute values.
-        return ptrTargets;
     }
 
     public void SaveCRReviews(List<CRReviewData> baseText, string savePath)
