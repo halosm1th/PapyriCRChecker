@@ -7,7 +7,7 @@
         ReviewDate = reviewDate;
         ReviewPages = reviewPages;
         ItemPtr = itemPtr;
-        ReviewPath = reviewPath;
+        ReviewPath = reviewPath;    
     }
     
     public string ReviewPath { get; set; }

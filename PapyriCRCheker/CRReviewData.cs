@@ -18,26 +18,33 @@ public class CRReviewData
 
         var nameParts = new string[0];
         var name = cr.Split(",")[0];
+        var lastName = "";
         if(name.Contains("."))
         {
             nameParts = name.Split(".");
             nameParts[0] += ".";
+            
+            Forename = nameParts[0];
+            name = name.Replace(Forename, "");
+            nameParts = name.Split(" ");
+            
+            for (int i = 1; i < nameParts.Length; i++)
+            {
+                lastName += nameParts[i] + " ";
+            }
         }
-        name = "";
-        for (int i = 0; i < nameParts.Length-1; i++)
+        else
         {
-            name += nameParts[i] + " ";
-        }
-        
-        nameParts = name.Split(" ");
-        Forename = nameParts[0];
-        var lastName = "";
-        for (int i = 1; i < nameParts.Length; i++)
-        {
-            lastName += nameParts[i] + " ";
+            nameParts = name.Split(" ");
+            Forename = nameParts[0];
+            for (int i = 1; i < nameParts.Length; i++)
+            {
+                lastName += nameParts[i] + " ";
+            }
+            
         }
 
-        if (lastName.Length > 0) Lastname = lastName.Remove(lastName.Length - 1, 1);
+        if (lastName.Length > 0) Lastname = lastName.Trim();
         else Lastname = "ERROR WITH LAST NAME";
         Date = year;
         var pages = new string[0];

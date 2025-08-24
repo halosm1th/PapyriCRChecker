@@ -524,7 +524,6 @@ public class PapyriCRChecker
                                                             && x.PageRange == match.PageRange
                                                             && x.Source == match.Source);
                         xmlReviews.AddRange(matches);
-                        
                     }
                 }
                 
