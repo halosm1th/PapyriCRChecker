@@ -155,7 +155,7 @@ public class PapyriCRChecker
 
     private static void SaveReviewsNotInBP(List<ParsedXMLReviewData> reviewReviewInPnNotInbp)
     {
-        var saveFile = Directory.GetCurrentDirectory() + $"/PapyriCRChecker results from {DateTime.Now}.txt";
+        var saveFile = Directory.GetCurrentDirectory() + $"/PapyriCRChecker ({DateTime.Now}).txt";
         foreach (var review in reviewReviewInPnNotInbp)
         {
             var fileName = review.Source.PNFileName;
