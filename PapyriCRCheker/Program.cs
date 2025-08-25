@@ -2,6 +2,7 @@
 
 using System;
 using System.IO;
+using BPtoPNDataCompiler;
 using DefaultNamespace;
 using OfficeOpenXml;
 using PapyriCRCheckerV2;
@@ -37,13 +38,13 @@ var BaseCNReviews = coreUtils.GetFilesWithCNSeg(biblioFiles);
 logger.Log($"Gathered {BaseCNReviews.Count} files with CR segments.");
 
 var ParsedCNReviews = coreUtils.ParsedCNReviewsAndAttachToRelevantBiblioFile(BaseCNReviews);
-logger.Log($"Parsed files with CR seg into {ParsedCNReviews.Count} CR reviews.");
+logger.Log($"Parsed files with CR seg into {ParsedCNReviews.Count} CR reviews, of which {CRReviewData.NOJOURNALMATCH} had no journal match..");
 
 coreUtils.SaveMatchResultsInSpreadsheet(biblioFiles);
 
 var FilesWithUnequalReviews = coreUtils.GetFilesWithUnequalReviews(biblioFiles);
 Console.ForegroundColor = ConsoleColor.Magenta;
-Console.WriteLine($"There are {FilesWithUnequalReviews.Count} files with an unequal # of reviews to be processed.");
+Console.WriteLine($"There are {FilesWithUnequalReviews.Count} files with an unequal # of reviews to be processed. ({CRReviewData.NOJOURNALMATCH} had no journal match.)");
 logger.Log($"There are {FilesWithUnequalReviews.Count} files with an unequal # of reviews to be processed.");
 Console.ResetColor();
 
