@@ -143,6 +143,7 @@ public class CRReviewData
                     {
                         Console.WriteLine("No journal name found?");
                         logger?.LogProcessingInfo("\tNo journal name found?");
+            NOJOURNALMATCH++;
                         return "-1";
                     }
                 }
@@ -152,11 +153,13 @@ public class CRReviewData
                     Console.WriteLine($"had an error parsing journal: {journal}: {e}");
                     Console.ResetColor();
                     logger?.LogError($"had an error parsing journal: {journal}", e);
+            NOJOURNALMATCH++;
                     return "-1";
                 }
                 
             }
 
+            NOJOURNALMATCH++;
         return "-1";
     }
         catch (Exception e)
@@ -171,6 +174,8 @@ public class CRReviewData
         throw new NotImplementedException();
     }
 
+    public static int NOJOURNALMATCH = 0;
+    
     public override string ToString()
     {
         return $"""
