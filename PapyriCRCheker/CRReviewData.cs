@@ -1,4 +1,8 @@
-﻿using System.Text.RegularExpressions;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
 using DefaultNamespace;
 
 namespace BPtoPNDataCompiler;
@@ -90,16 +94,23 @@ public class CRReviewData
 
     private string GetJournalID(string journal)
     {
+        logger.LogProcessingInfo($"Getting journal ID for: {journal} in {CRData}");
         try
         {
             if (journal.Contains("-") || journal.Contains("p.") || string.IsNullOrEmpty(journal))
+            {
                 Console.WriteLine($"There was an error parsing the journal for: {CRData}");
+                logger?.LogProcessingInfo($"\tThere was an error parsing the journal for: {CRData}");
+            }
             else
             {
-                
-                if(journal == "") 
+
+                if (journal == "")
+                {
                     Console.WriteLine("no journal given");
-                
+                    logger?.LogProcessingInfo("\tno journal given");
+                }
+
                 var listOFJournals = GetJounrals();
 
                 try
@@ -124,11 +135,14 @@ public class CRReviewData
                         else
                             id = listOFJournals[journal];
 
+                        
+                        logger.LogProcessingInfo($"\tFound ID {id}.");
                         return id;
                     }
                     else
                     {
                         Console.WriteLine("No journal name found?");
+                        logger?.LogProcessingInfo("\tNo journal name found?");
                         return "-1";
                     }
                 }
@@ -149,7 +163,7 @@ public class CRReviewData
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"Could not find a journal to match {journal}. Threw error: {e}");
-            logger?.LogProcessingInfo($"Could not find a journal to match {journal}. Threw error: {e}");
+            logger?.LogProcessingInfo($"\tCould not find a journal to match {journal}. Threw error: {e}");
             Console.ResetColor();
             return "-1";
         }

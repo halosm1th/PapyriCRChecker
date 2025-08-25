@@ -16,10 +16,10 @@ public class Logger
     private readonly string _sessionFolder;
     private Dictionary<string, StreamWriter> _logWriters;
 
-    public Logger()
+    public Logger(string NameForLogDirectory)
     {
         // Create logs in the application directory
-        _logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UpdatingNewXMLs");
+        _logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, NameForLogDirectory);
         _sessionFolder = Path.Combine(_logDirectory, DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss"));
         _logWriters = new Dictionary<string, StreamWriter>();
 

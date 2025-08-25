@@ -39,7 +39,7 @@ public class XMLEntryGatherer
 
     public string GetHighestXmlEntryValue()
     {
-        
+        logger.LogProcessingInfo("Trying to find highest PN in xml values.");
         var entries = Entries.OrderBy(x => x.PNNumber);
 
         var largestPN = 0;
@@ -50,7 +50,8 @@ public class XMLEntryGatherer
                 if (numb > largestPN) largestPN = numb;
             }
         }
-
+        
+        logger.LogProcessingInfo($"Found {largestPN} as the highest PN in xml values.");
         return Convert.ToString(largestPN);
     }
     
@@ -58,11 +59,9 @@ public class XMLEntryGatherer
     {
         try
         {
-            logger.LogProcessingInfo($"Getting entry at {filePath}");
             var doc = new XmlDocument();
             doc.Load(filePath);
             var entry = new XMLDataEntry(filePath, logger, doc);
-            logger.LogProcessingInfo("Entry loaded.");
 
             foreach (var rawNode in doc?.DocumentElement?.ChildNodes)
             {
@@ -73,7 +72,7 @@ public class XMLEntryGatherer
                 }
                 else
                 {
-                    //logger.LogProcessingInfo($"Found a node that is not an element, moving onto {filePath}");
+                    logger?.LogProcessingInfo($"Found a node that is not an element, moving onto {filePath}");
                     Console.WriteLine($"getting: {filePath}");
                 }
             }
@@ -126,7 +125,6 @@ public class XMLEntryGatherer
         foreach (var file in Directory.GetFiles(folder))
         {
             var entry = GetEntry(file);
-            //logger.LogProcessingInfo($"Gathered {entry.Title} from file {file}");
             //Console.WriteLine($"Gathered {entry.Title} from file {file}");
             if (entry != null) dataEntries.Add(entry);
         }
@@ -136,6 +134,7 @@ public class XMLEntryGatherer
 
     public List<XMLDataEntry> GatherEntries()
     {
+        logger.LogProcessingInfo("Gathering entries");
         if (Entries.Count > 0) return Entries;
         
         //logger.LogProcessingInfo("Gathering XMl Entries");
@@ -144,6 +143,7 @@ public class XMLEntryGatherer
         {
             foreach (var folder in Directory.GetDirectories(BiblioPath))
             { 
+                logger.LogProcessingInfo($"Gathering entries from folder: {folder}");
                 int startNumb = Convert.ToInt32(StartFolder);
                 int endNumb = Convert.ToInt32(EndFolder);
 
@@ -156,7 +156,7 @@ public class XMLEntryGatherer
                         foreach (var entry in GetEntriesFromFolder(folder))
                         {
                             //logger.Log($"Adding {entry.Title} from {folder} to entries");
-                            //logger.LogProcessingInfo($"Adding {entry.Title} from {folder} to entries");
+                            //logger.LogProcessingInfo($"\t\tAdding {entry.Title} from {folder} to entries");
                             entries.Add(entry);
                         }
                     }
