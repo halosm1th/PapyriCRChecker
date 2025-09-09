@@ -17,6 +17,7 @@ public class XMLDirectoryFinder
         Console.WriteLine($"Trying to find IDP.Data Directory. Starting at: {startingDir}");
         _logger.LogProcessingInfo($"Trying to find IDP.Data Directory. Starting at: {startingDir}");
         var idpData = FindIDPDataDirectory(startingDir);
+        Console.WriteLine($"IDP data path: {idpData}");
         
         var DirsInIDP = Directory.GetDirectories(idpData);
         if (DirsInIDP.Any(x => x.ToLower().Contains("biblio")))
@@ -34,7 +35,7 @@ public class XMLDirectoryFinder
         Console.WriteLine($"Trying: {startingDirectory}");
         _logger.LogProcessingInfo($"Trying: {startingDirectory}");
         var dirs = Directory.GetDirectories(startingDirectory);
-        if (dirs.Any(x => x.Contains(searchTerm)))
+        if (dirs.Any(x => x.ToLower().Contains(searchTerm.ToLower())))
         {
             return dirs.First(x => x.Contains(searchTerm));
         }
