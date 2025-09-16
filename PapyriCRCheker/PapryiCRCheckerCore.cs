@@ -579,23 +579,24 @@ public class PapryiCRCheckerCore
     }
     
     
-    public string GetLargestDirInXMLDir(string s)
+    public string GetLargestDirInDirectory(string s)
     {
         var folders = Directory.GetDirectories(s);
         var curMax = 0;
         foreach (var folder in folders)
         {
             int numb = 0;
-            if (Int32.TryParse(folder, out numb))
+            var numberRegex = new Regex(@"\d+");
+            var match = numberRegex.Match(folder);
+            if (Int32.TryParse(match.Value, out numb))
             {
                 if(numb > curMax) curMax = numb;
             }
         }
 
-        Console.ForegroundColor = ConsoleColor.Red;
+        Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine($"Found max folder as: {curMax}");
         Console.ResetColor();
-        Console.ReadKey();
         return curMax.ToString();
     }
 }

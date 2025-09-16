@@ -1,4 +1,6 @@
-﻿using System.Xml;
+﻿using System.Text.RegularExpressions;
+using System.Xml;
+using OfficeOpenXml.FormulaParsing.FormulaExpressions;
 
 namespace DefaultNamespace;
 
@@ -148,8 +150,10 @@ public class XMLEntryGatherer
                 int endNumb = Convert.ToInt32(EndFolder);
 
                 int folderNumb = -1;
-                var foldNumb = folder.Split("/idp.data/Biblio/");
-                if (int.TryParse(foldNumb[1], out folderNumb))
+                var foldNumb = 0;
+                    var numberRegex = new Regex(@"\d+");
+                    var match = numberRegex.Match(folder);
+                if (int.TryParse(match.Value, out folderNumb))
                 {
                     if (folderNumb >= startNumb && folderNumb <= endNumb)
                     {

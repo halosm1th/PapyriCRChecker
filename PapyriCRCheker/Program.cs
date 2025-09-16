@@ -20,7 +20,7 @@ logger.Log($"Program started in: {startingDirectory}, will be saving Updates for
 
 var directoryFinder = new XMLDirectoryFinder(logger);
 var xmlDir = directoryFinder.FindBiblioDirectory(startingDirectory);
-var saveXmlDir = Path.Combine(xmlDir, coreUtils.GetLargestDirInXMLDir(xmlDir));
+var saveXmlDir = Path.Combine(xmlDir, coreUtils.GetLargestDirInDirectory(xmlDir));
 
 logger.Log($"Found Directory with XML files: {xmlDir}.\nWill be saving new XML files to: {saveXmlDir}");
 
