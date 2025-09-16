@@ -151,7 +151,7 @@ public class XMLEntryGatherer
 
                 int folderNumb = -1;
                 var foldNumb = 0;
-                    var numberRegex = new Regex(@"\d+");
+                    var numberRegex = new Regex(@"\d+$");
                     var match = numberRegex.Match(folder);
                 if (int.TryParse(match.Value, out folderNumb))
                 {

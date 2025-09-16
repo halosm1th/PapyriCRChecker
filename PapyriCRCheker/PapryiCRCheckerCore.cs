@@ -586,7 +586,7 @@ public class PapryiCRCheckerCore
         foreach (var folder in folders)
         {
             int numb = 0;
-            var numberRegex = new Regex(@"\d+");
+            var numberRegex = new Regex(@"\d+$");
             var match = numberRegex.Match(folder);
             if (Int32.TryParse(match.Value, out numb))
             {
