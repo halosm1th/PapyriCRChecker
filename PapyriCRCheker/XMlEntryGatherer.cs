@@ -148,7 +148,7 @@ public class XMLEntryGatherer
                 int endNumb = Convert.ToInt32(EndFolder);
 
                 int folderNumb = -1;
-                var foldNumb = folder.Split("\\idp.data\\Biblio\\");
+                var foldNumb = folder.Split("/idp.data/Biblio/");
                 if (int.TryParse(foldNumb[1], out folderNumb))
                 {
                     if (folderNumb >= startNumb && folderNumb <= endNumb)

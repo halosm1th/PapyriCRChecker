@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using DefaultNamespace;
 
@@ -178,13 +179,23 @@ public class CRReviewData
     
     public override string ToString()
     {
-        return $"""
-                <?xml version="1.0" encoding="UTF-8"?>
-                <bibl xmlns="http://www.tei-c.org/ns/1.0" xml:id="b{IDNumber}" type="review">
-                  <author>{Name}</author>
-                   <date>{Date}</date>
-                  <biblScope type="pp" from="{PageStart}" to="{PageEnd}">{PageStart}-{PageEnd}</biblScope>
-                  <relatedItem type="appearsIn">
+        var sb = new StringBuilder();
+        sb.Append($"""
+                                              <?xml version="1.0" encoding="UTF-8"?>
+                                              <bibl xmlns="http://www.tei-c.org/ns/1.0" xml:id="b{IDNumber}" type="review">
+                                              <author>{Name}</author>
+                                              <date>{Date}</date>
+                       """);
+        
+        sb.Append(PageEnd != "[NONE"? $"""
+         <biblScope type="pp" from="{PageStart}" to="{PageEnd}">{PageStart}-{PageEnd}</biblScope>
+         """ 
+            :$"""
+              <biblScope type="pp"">{PageStart}</biblScope>
+              """ );
+                  
+            sb.Append($"""
+                              <relatedItem type="appearsIn">
                       <bibl>
                          <ptr target="https://papyri.info/biblio/{JournalID}"/>
                          <!--ignore - start, i.e. SoSOL users may not edit this-->
@@ -202,6 +213,8 @@ public class CRReviewData
                   <idno type="pi">{IDNumber}</idno>
                   <seg type="original" subtype="cr" resp="#BP">{CRData}</seg>
                 </bibl>
-                """;
+                """);
+
+            return sb.ToString();
     }
 }

@@ -575,5 +575,27 @@ public class PapryiCRCheckerCore
             Console.WriteLine("----------------------------------------");
             fileProcessed++;
         }
+        
+    }
+    
+    
+    public string GetLargestDirInXMLDir(string s)
+    {
+        var folders = Directory.GetDirectories(s);
+        var curMax = 0;
+        foreach (var folder in folders)
+        {
+            int numb = 0;
+            if (Int32.TryParse(folder, out numb))
+            {
+                if(numb > curMax) curMax = numb;
+            }
+        }
+
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine($"Found max folder as: {curMax}");
+        Console.ResetColor();
+        Console.ReadKey();
+        return curMax.ToString();
     }
 }
