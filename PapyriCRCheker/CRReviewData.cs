@@ -49,6 +49,12 @@ public class CRReviewData
         JournalID = GetJournalID(journalName);
         Name = name;
         CRData = baseText;
+        
+        var amperMatch = Regex.Match(CRData, ".&.");
+        if (amperMatch.Success && !CRData.Contains("&amp;"))
+        {
+            CRData = CRData.Replace("&","&amp;");
+        }
 
         var pages = new string[0];
 
