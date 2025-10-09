@@ -189,12 +189,12 @@ public class CRReviewData
     {
         var sb = new StringBuilder();
         sb.Append($"""
-                                              <?xml version="1.0" encoding="UTF-8"?>
-                                              <bibl xmlns="http://www.tei-c.org/ns/1.0" xml:id="b{IDNumber}" type="review">
-                                              <author>{Name}</author>
-                                              <date>{Date}</date>
-                       """);
-        
+                   <?xml version="1.0" encoding="UTF-8"?>
+                   <bibl xmlns="http://www.tei-c.org/ns/1.0" xml:id="b{IDNumber}" type="review">
+                   <author>{Name}</author>
+                   <date>{Date}</date>
+                   """);
+        sb.Append("\n");   
         sb.Append(PageEnd != "[NONE"? $"""
          <biblScope type="pp" from="{PageStart}" to="{PageEnd}">{PageStart}-{PageEnd}</biblScope>
          """ :$"""
@@ -220,7 +220,8 @@ public class CRReviewData
                    <idno type="pi">{IDNumber}</idno>
                    <seg type="original" subtype="cr" resp="#BP">{CRData}</seg>
                    """);
-                
+        sb.Append("\n");        
+        
                 sb.Append(internetLink != "[NONE]" ? 
                     $"""
                      <ptr target="{internetLink}"/>
