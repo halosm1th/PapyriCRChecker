@@ -31,12 +31,13 @@ public class CRReviewData
     public string Date { get; } = "[NONE]";
     public string PageStart { get; } = "[NONE]";
     public string PageEnd { get; } = "[NONE]";
+    public string internetLink { get; } = "[NONE]";
     
     public string PageRange  => $"{PageStart.Replace("pp. ", "").Replace(" ", "")}-{PageEnd}";
     
     private static Dictionary<string, string> _journals { get; set; }
-    
-    public CRReviewData(XMLDataEntry sourceOfCREntry, string name, string pageRange, string year,  
+
+    public CRReviewData(XMLDataEntry sourceOfCREntry, string name, string pageRange, string year,
         string journalName, string journalNumber, string articleNumberCRReviewing, string baseText, Logger _logger)
     {
         Source = sourceOfCREntry;
@@ -48,12 +49,12 @@ public class CRReviewData
         JournalID = GetJournalID(journalName);
         Name = name;
         CRData = baseText;
-        
+
         var pages = new string[0];
 
         if (pageRange.Contains("-"))
         {
-            pages= pageRange.Split("-");
+            pages = pageRange.Split("-");
             PageStart = pages[0];
             if (pages.Length > 1)
                 PageEnd = pages[1];
@@ -61,7 +62,8 @@ public class CRReviewData
             {
                 Console.WriteLine(CRData);
             }
-        }else if (pageRange.Contains("p. "))
+        }
+        else if (pageRange.Contains("p. "))
         {
             pages = pageRange.Split("p.");
             PageStart = pages[1];
@@ -73,7 +75,13 @@ public class CRReviewData
             }
         }
 
-    }
+        if (baseText.Contains("http://") || baseText.Contains("https://") || baseText.Contains("BMCR"))
+        {
+            var urlMatch = Regex.Match(baseText, @"\s*(https?://[^\s>]+)\s*");
+            if (urlMatch.Success) internetLink = urlMatch.Groups[1].Value.Trim();
+        }
+
+}
 
     private Dictionary<string, string> GetJounrals()
     {
@@ -189,31 +197,38 @@ public class CRReviewData
         
         sb.Append(PageEnd != "[NONE"? $"""
          <biblScope type="pp" from="{PageStart}" to="{PageEnd}">{PageStart}-{PageEnd}</biblScope>
-         """ 
-            :$"""
-              <biblScope type="pp"">{PageStart}</biblScope>
-              """ );
-                  
-            sb.Append($"""
-                              <relatedItem type="appearsIn">
-                      <bibl>
-                         <ptr target="https://papyri.info/biblio/{JournalID}"/>
-                         <!--ignore - start, i.e. SoSOL users may not edit this-->
-                         <!--ignore - stop-->
-                      </bibl>
-                  </relatedItem>
-                  <biblScope type="issue">{Issue.Trim()}</biblScope>
-                  <relatedItem type="reviews" n="1">
-                      <bibl>
-                         <ptr target="https://papyri.info/biblio/{ArticleNumberCrIsReviewing}"/>
-                         <!--ignore - start, i.e. SoSOL users may not edit this-->
-                         <!--ignore - stop-->
-                      </bibl>
-                  </relatedItem>
-                  <idno type="pi">{IDNumber}</idno>
-                  <seg type="original" subtype="cr" resp="#BP">{CRData}</seg>
+         """ :$"""
+               <biblScope type="pp"">{PageStart}</biblScope>
+               """ );
+
+        sb.Append($"""
+                             <relatedItem type="appearsIn">
+                     <bibl>
+                        <ptr target="https://papyri.info/biblio/{JournalID}"/>
+                        <!--ignore - start, i.e. SoSOL users may not edit this-->
+                        <!--ignore - stop-->
+                     </bibl>
+                   </relatedItem>
+                   <biblScope type="issue">{Issue.Trim()}</biblScope>
+                   <relatedItem type="reviews" n="1">
+                     <bibl>
+                        <ptr target="https://papyri.info/biblio/{ArticleNumberCrIsReviewing}"/>
+                        <!--ignore - start, i.e. SoSOL users may not edit this-->
+                        <!--ignore - stop-->
+                     </bibl>
+                   </relatedItem>
+                   <idno type="pi">{IDNumber}</idno>
+                   <seg type="original" subtype="cr" resp="#BP">{CRData}</seg>
+                   """);
+                
+                sb.Append(internetLink != "[NONE]" ? 
+                    $"""
+                     <ptr target="{internetLink}"/>
+                     </bibl>
+                     """ : $"""
                 </bibl>
-                """);
+                """
+                );
 
             return sb.ToString();
     }
