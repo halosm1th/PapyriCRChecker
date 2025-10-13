@@ -498,12 +498,7 @@ public class PapryiCRCheckerCore
             logger.LogProcessingInfo($"Could not convert max id: {currentMaxXmlid} to int");
             throw new ArgumentException($"Error the current max XML ID ({currentMaxXmlid}) is not a number.");
         }
-
-        currentMax = currentMax + 1;
-        currentMaxXmlid = currentMax.ToString();
-        cr.IDNumber = currentMaxXmlid;
-        xmlDir = Path.Combine(xmlDir, $"{cr.IDNumber}.xml");
-
+        
         if (cr.JournalID == "-1")
         {
             Console.ForegroundColor = ConsoleColor.Red;
@@ -522,6 +517,11 @@ public class PapryiCRCheckerCore
         var key = Console.ReadKey();
         if (key.Key == ConsoleKey.Y)
         {
+            currentMax = currentMax + 1;
+            currentMaxXmlid = currentMax.ToString();
+            cr.IDNumber = currentMaxXmlid;
+            xmlDir = Path.Combine(xmlDir, $"{cr.IDNumber}.xml");
+            
             logger.LogProcessingInfo($"created new xml file: {xmlDir}");
             File.WriteAllText(xmlDir, cr.ToString());
         }
