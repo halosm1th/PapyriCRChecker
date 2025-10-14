@@ -69,15 +69,19 @@ public class CRReviewData
                 Console.WriteLine(CRData);
             }
         }
-        else if (pageRange.Contains("p. "))
+        else
         {
-            pages = pageRange.Split("p.");
-            PageStart = pages[1];
+            pages = pageRange.Split(" ");
+            PageStart = pages[0];
+            
+            var numberMatch = Regex.Match(PageStart, @"\d+");
+            if (!numberMatch.Success) PageStart = "ERROR PARSING NUMBER";
+                
             if (pages.Length > 1)
-                PageEnd = pages[2];
+                PageEnd = pages[1];
             else
             {
-                PageEnd = "";
+                PageEnd = "[NONE]";
             }
         }
 
@@ -201,14 +205,15 @@ public class CRReviewData
                    <date>{Date}</date>
                    """);
         sb.Append("\n");   
-        sb.Append(PageEnd != "[NONE"? $"""
+        sb.Append(PageEnd != "[NONE]"? $"""
          <biblScope type="pp" from="{PageStart}" to="{PageEnd}">{PageStart}-{PageEnd}</biblScope>
          """ :$"""
                <biblScope type="pp"">{PageStart}</biblScope>
                """ );
 
         sb.Append($"""
-                             <relatedItem type="appearsIn">
+                   
+                        <relatedItem type="appearsIn">
                      <bibl>
                         <ptr target="https://papyri.info/biblio/{JournalID}"/>
                         <!--ignore - start, i.e. SoSOL users may not edit this-->
@@ -224,7 +229,7 @@ public class CRReviewData
                      </bibl>
                    </relatedItem>
                    <idno type="pi">{IDNumber}</idno>
-                   <seg type="original" subtype="cr" resp="#BP">{CRData}</seg>
+                   <seg type="original" subtype="cr" resp="#BP">{CRData.Trim()}</seg>
                    """);
         sb.Append("\n");        
         

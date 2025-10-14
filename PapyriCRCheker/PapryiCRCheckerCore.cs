@@ -272,9 +272,12 @@ public class PapryiCRCheckerCore
 
         foreach (var file in biblioFiles)
         {
-            if (HasCrSegNode(file.BaseDocument, file.PNFileName))
+            if (HasIndexSegNode(file.BaseDocument, file.PNFileName))
             {
-                reviewFiles.Add(file);
+                if (HasCrSegNode(file.BaseDocument, file.PNFileName))
+                {
+                    reviewFiles.Add(file);
+                }
             }
         }
         logger.LogProcessingInfo($"Gathered {reviewFiles.Count} files with CN segs from {biblioFiles.Count} biblio files");
@@ -289,6 +292,16 @@ public class PapryiCRCheckerCore
     {
         var crSegNode = GetTextFromNode(xmlDoc,"//tei:seg[@subtype='cr']" , filePath);
         if(!string.IsNullOrEmpty(crSegNode)) return crSegNode;
+        
+        return null;
+    }
+    
+    public bool HasIndexSegNode(XmlDocument xmlDoc, string filePath) 
+        =>  !string.IsNullOrEmpty(GetIndexSegText(xmlDoc, filePath));
+    public string? GetIndexSegText(XmlDocument xmlDoc, string filePath)
+    {
+        var indexSegNode = GetTextFromNode(xmlDoc,"//tei:seg[@subtype='index']" , filePath);
+        if(!string.IsNullOrEmpty(indexSegNode)) return indexSegNode;
         
         return null;
     }
@@ -333,7 +346,9 @@ public class PapryiCRCheckerCore
             var pagesMatch = pageMatchRegex.Match(reviewWithoutName);
             if (pagesMatch.Success)
             {
-                var pageRegex = new Regex(@"\d+-\d+");
+                var pageRegex = reviewWithoutName.Contains("-")?
+                    new Regex(@"\d+-\d+")
+                    : new Regex(@"\d+");
                 pages = pageRegex.Match(pagesMatch.Value).Value;
                 reviewWithoutName = reviewWithoutName.Replace($"{pagesMatch}", "");
             }
