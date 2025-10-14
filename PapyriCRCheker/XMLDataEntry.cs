@@ -255,14 +255,16 @@ public class XMLDataEntry : BPDataEntry
         foreach (var review in ParsedXMLReviews)
         {
             if (ParsedCRReviews.Any(x =>
-                    review.ReviewPageRange == x.PageRange
+                    x.PageStart == review.PageStart 
+                    && x.PageEnd == review.PageEnd
                     && x.Name.Contains(review.AuthorLastName ?? "None")
                     && x.JournalID == review.DocumentAppearsInIDNumber ))
             {
                 unMatchedXMLReviews.Remove(review);
                 
                 var match = ParsedCRReviews.First(x =>
-                    review.ReviewPageRange == x.PageRange
+                    x.PageStart == review.PageStart 
+                    && x.PageEnd == review.PageEnd
                     && x.Name.Contains(review.AuthorLastName ?? "None")
                     && x.JournalID == review.DocumentAppearsInIDNumber );
                 unMatchedCrReviews.Remove(match);
@@ -293,19 +295,22 @@ public class XMLDataEntry : BPDataEntry
         foreach (var review in ParsedCRReviews)
         {
             if (ParsedXMLReviews.Any(x =>
-                    x.ReviewPageRange == review.PageRange
+                    x.PageStart == review.PageStart 
+                    && x.PageEnd == review.PageEnd
                     && review.Name.Contains(x.AuthorLastName ?? "[NONE]")
                     && review.JournalID == x.DocumentAppearsInIDNumber ))
             {
                 unMatchedCrReviews.Remove(review);
                 var xmlReview = ParsedXMLReviews.First(x =>
-                    x.ReviewPageRange == review.PageRange
+                    x.PageStart == review.PageStart 
+                    && x.PageEnd == review.PageEnd
                     && review.Name.Contains(x.AuthorLastName ?? "[NONE]")
                     && review.JournalID == x.DocumentAppearsInIDNumber);
                 unMatchedXMLReviews.Remove(xmlReview);
                 
                 var match = ParsedXMLReviews.First(x =>
-                    x.ReviewPageRange == review.PageRange
+                    x.PageStart == review.PageStart 
+                    && x.PageEnd == review.PageEnd
                     && review.Name.Contains(x.AuthorLastName ?? "[NONE]")
                     && review.JournalID == x.DocumentAppearsInIDNumber);
                 Console.ForegroundColor = ConsoleColor.Green;

@@ -14,7 +14,22 @@ public class ParsedXMLReview
 
         DocumentAppearsInIDNumber = appearsIn;
         ReviewPageRange = pageRange;
-        
+
+        if (pageRange != null)
+        {
+            if (pageRange.Contains("-"))
+            {
+                var pages = pageRange.Split("-");
+                PageStart = pages[0];
+                PageEnd = pages[1];
+            }
+            else
+            {
+                PageStart = ReviewPageRange;
+                PageEnd = "[NONE]";
+            }
+        }
+
         AuthorFirstName = authorFirstName;
         AuthorLastName = authorLastName;
         ReviewDate = reviewDate;
@@ -33,6 +48,8 @@ public class ParsedXMLReview
     public string? AuthorLastName { get; set; }
     public string ReviewDate { get; set; }
     public string? ReviewPageRange { get; set; }
+    public string PageStart { get; set; } 
+    public string PageEnd { get; set; }
     public List<string> RelatedItemReviewPtrs { get; set; }
 
     public string ToCRUpdateString()
