@@ -3,13 +3,14 @@ using System.Xml;
 
 public class ParsedXMLReview
 {
-    public ParsedXMLReview(XmlDocument sourceDocument, string documentPath, string bpNumber,
+    public ParsedXMLReview(XmlDocument sourceDocument, string documentPath, string bpNumber, string pnNumber,
         string authorFirstName, string authorLastName,string reviewDate, string pageRange,
         string appearsIn, List<string> relatedItemReviews)
     {
         SourceDocument = sourceDocument;
         ReviewPath = documentPath;
         BPNumber = bpNumber;
+        PNNumber = pnNumber;
 
         DocumentAppearsInIDNumber = appearsIn;
         ReviewPageRange = pageRange;
@@ -27,6 +28,7 @@ public class ParsedXMLReview
     public string ReviewPath { get; set; }
     
     public string BPNumber { get; set; }
+    public string PNNumber { get; set; }
     public string AuthorFirstName { get; set; }
     public string? AuthorLastName { get; set; }
     public string ReviewDate { get; set; }
@@ -37,7 +39,8 @@ public class ParsedXMLReview
     {
         var sb = new StringBuilder();
 
-       sb.Append($"Written by: {AuthorFirstName} {AuthorLastName} on {ReviewDate}, pp. {ReviewPageRange}, appears in {DocumentAppearsInIDNumber}.\n");
+       sb.Append($"Written by: {AuthorFirstName} {AuthorLastName} in PN# {PNNumber} reviewed related time {RelatedItemReviewPtrs} " +
+                 $"in {DocumentAppearsInIDNumber} ({ReviewDate}), pp. {ReviewPageRange}.\n");
         return sb.ToString();
     }
     

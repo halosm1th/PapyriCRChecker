@@ -106,7 +106,7 @@ public class PapryiCRCheckerCore
         var relatedItemReviews = ExtractRelatedItemReviews(review.BaseDocument, review.PNFileName);
         
         return new ParsedXMLReview(
-            review.BaseDocument, review.PNFileName, review.BPNumber,
+            review.BaseDocument, review.PNFileName, review.BPNumber, review.PNNumber,
             forename, surname, date, pages,
             appearsIn,relatedItemReviews);
     }
