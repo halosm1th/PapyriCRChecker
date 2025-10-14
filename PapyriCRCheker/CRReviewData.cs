@@ -208,7 +208,7 @@ public class CRReviewData
         sb.Append(PageEnd != "[NONE]"? $"""
          <biblScope type="pp" from="{PageStart}" to="{PageEnd}">{PageStart}-{PageEnd}</biblScope>
          """ :$"""
-               <biblScope type="pp"">{PageStart}</biblScope>
+               <biblScope type="pp">{PageStart}</biblScope>
                """ );
 
         sb.Append($"""
