@@ -37,7 +37,7 @@ public class CRReviewData
     
     private static Dictionary<string, string> _journals { get; set; }
 
-    public CRReviewData(XMLDataEntry sourceOfCREntry, string name, string pageRange, string year,
+    public CRReviewData(XMLDataEntry sourceOfCREntry, string name, string pageRange, string year, string link,
         string journalName, string journalNumber, string articleNumberCRReviewing, string baseText, Logger _logger)
     {
         Source = sourceOfCREntry;
@@ -85,7 +85,11 @@ public class CRReviewData
             }
         }
 
-        if (baseText.Contains("http://") || baseText.Contains("https://") || baseText.Contains("BMCR"))
+        if (!string.IsNullOrEmpty(link))
+        {
+            internetLink = link;
+        }
+        else if (baseText.Contains("http://") || baseText.Contains("https://") || baseText.Contains("BMCR"))
         {
             var urlMatch = Regex.Match(baseText, @"\s*(https?://[^\s>]+)\s*");
             if (urlMatch.Success) internetLink = urlMatch.Groups[1].Value.Trim();

@@ -399,7 +399,7 @@ public class PapryiCRCheckerCore
             logger.LogProcessingInfo($"Got name: {name}, pages: {pages}, year: {year}, number: {journalNumber}, link? {link}, journal {journalName}" +
                                      $"need to process the rest of the CR Review: {reviewWithoutName.Trim()}\n\t{review}");
 
-            var parsedCRReview = new CRReviewData(entry, name, pages, year,
+            var parsedCRReview = new CRReviewData(entry, name, pages, year, link,
                 journalName, journalNumber, entry.PNNumber, baseText, logger);
             parsedReviews.Add(parsedCRReview);
             entry.ParsedCRReviews.Add(parsedCRReview);
