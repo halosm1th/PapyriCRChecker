@@ -361,7 +361,7 @@ public class PapryiCRCheckerCore
                 reviewWithoutName = reviewWithoutName.Replace(yearMatch.Value, "");
             }
             
-            var journalNUmberRegex = new Regex(@"( \d+ \()");
+            var journalNUmberRegex = new Regex(@"( \d+?[-\d+] \()");
             var journalNumberMatch = journalNUmberRegex.Match(reviewWithoutName);
             if (journalNumberMatch.Success)
             {
@@ -378,7 +378,12 @@ public class PapryiCRCheckerCore
             if (reviewWithoutName.Contains("http://") || reviewWithoutName.Contains("https://") || reviewWithoutName.Contains("BMCR"))
             {
                 var urlMatch = Regex.Match(reviewWithoutName, @"\s*(https?://[^\s>]+)\s*");
-                if (urlMatch.Success) link = urlMatch.Groups[1].Value.Trim();
+                if (urlMatch.Success)
+                {
+                    link = urlMatch.Groups[1].Value.Trim();
+                    reviewWithoutName = reviewWithoutName.Replace("link", "");
+                }
+                
             }
             
             var journalName = reviewWithoutName;
