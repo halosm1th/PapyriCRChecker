@@ -374,18 +374,17 @@ public class PapryiCRCheckerCore
             if(reviewWithoutName.EndsWith(",")) reviewWithoutName.Remove(reviewWithoutName.Length - 1);
 
             var link = "NO LINK";
-            if (reviewWithoutName.Contains("http"))
+            
+            if (reviewWithoutName.Contains("http://") || reviewWithoutName.Contains("https://") || reviewWithoutName.Contains("BMCR"))
             {
-                link = reviewWithoutName.Split("http")[0];
-                reviewWithoutName = reviewWithoutName.Replace(link, "");
+                var urlMatch = Regex.Match(reviewWithoutName, @"\s*(https?://[^\s>]+)\s*");
+                if (urlMatch.Success) link = urlMatch.Groups[1].Value.Trim();
             }
-           
+            
             var journalName = reviewWithoutName;
             journalName = journalName.Replace("&amp;", "&");
             if(journalName.Contains(",")) journalName = journalName.Split(",")[0].Trim();
-
-                        
-                        
+     
             
             
             Console.ForegroundColor = ConsoleColor.Green;

@@ -90,8 +90,7 @@ public class CRReviewData
             var urlMatch = Regex.Match(baseText, @"\s*(https?://[^\s>]+)\s*");
             if (urlMatch.Success) internetLink = urlMatch.Groups[1].Value.Trim();
         }
-
-}
+    }
 
     private Dictionary<string, string> GetJounrals()
     {
