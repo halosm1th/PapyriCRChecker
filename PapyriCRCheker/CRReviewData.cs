@@ -145,7 +145,22 @@ public class CRReviewData
                         }
                         
                         var id = "";
-                        if (journal.Contains("N.S."))
+                        if (journal.Contains(" 3e s."))
+                        {
+                            var shortName = journal.Replace(" 3e s.", "").Trim();
+                            if(listOFJournals.Any(x => x.Key == journal))
+                                id = listOFJournals[journal];
+                            else if (listOFJournals.Any(x => x.Key == shortName))
+                                id = listOFJournals[shortName];
+                        }else if (journal.Contains(" 4e s."))
+                        {
+                            var shortName = journal.Replace(" 4e s.", "").Trim();
+                            if(listOFJournals.Any(x => x.Key == journal))
+                                id = listOFJournals[journal];
+                            else if (listOFJournals.Any(x => x.Key == shortName))
+                                id = listOFJournals[shortName];
+                        }
+                        else if (journal.Contains("N.S."))
                         {
 
                             var shortName = journal.Replace(" N.S.", "").Trim();
