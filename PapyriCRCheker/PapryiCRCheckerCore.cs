@@ -361,7 +361,7 @@ public class PapryiCRCheckerCore
                 reviewWithoutName = reviewWithoutName.Replace(yearMatch.Value, "");
             }
             
-            var journalNUmberRegex = new Regex(@"( \d+?[-\d+] \()");
+            var journalNUmberRegex = new Regex(@"( \d+(?:[-](?:\d+))?\b \()");
             var journalNumberMatch = journalNUmberRegex.Match(reviewWithoutName);
             if (journalNumberMatch.Success)
             {
@@ -369,21 +369,15 @@ public class PapryiCRCheckerCore
                 journalNumber = journalNumber.Replace("(", "");
                 reviewWithoutName = reviewWithoutName.Replace(journalNumberMatch.Value, "");
             }
-            
+
             if(reviewWithoutName.Contains(")")) reviewWithoutName = reviewWithoutName.Split(")")[0].Trim();
             if(reviewWithoutName.EndsWith(",")) reviewWithoutName.Remove(reviewWithoutName.Length - 1);
 
-            var link = "NO LINK";
-            
-            if (reviewWithoutName.Contains("http://") || reviewWithoutName.Contains("https://") || reviewWithoutName.Contains("BMCR"))
+            var squareDateRegex = new Regex(@"\[\d{4}\]");
+            var squareDateMatch = squareDateRegex.Match(reviewWithoutName);
+            if (squareDateMatch.Success)
             {
-                var urlMatch = Regex.Match(reviewWithoutName, @"\s*(https?://[^\s>]+)\s*");
-                if (urlMatch.Success)
-                {
-                    link = urlMatch.Groups[1].Value.Trim();
-                    reviewWithoutName = reviewWithoutName.Replace("link", "");
-                }
-                
+                reviewWithoutName = reviewWithoutName.Replace(squareDateMatch.Value, "").Trim();
             }
             
             var journalName = reviewWithoutName;

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using DefaultNamespace;
+using OfficeOpenXml;
 
 namespace BPtoPNDataCompiler;
 
@@ -35,7 +36,8 @@ public class CRReviewData
     
     public string PageRange  => $"{PageStart.Replace("pp. ", "").Replace(" ", "")}-{PageEnd}";
     
-    private static Dictionary<string, string> _journals { get; set; }
+    private static Dictionary<string, string> _LongJournalTitles { get; set; }
+    private static Dictionary<string, string> _ShortJournalTitles { get; set; }
 
     public CRReviewData(XMLDataEntry sourceOfCREntry, string name, string pageRange, string year, string link,
         string journalName, string journalNumber, string articleNumberCRReviewing, string baseText, Logger _logger)
@@ -94,24 +96,51 @@ public class CRReviewData
             var urlMatch = Regex.Match(baseText, @"\s*(https?://[^\s>]+)\s*");
             if (urlMatch.Success) internetLink = urlMatch.Groups[1].Value.Trim();
         }
+        else
+        {
+            internetLink = "[NONE]";
+        }
     }
 
-    private Dictionary<string, string> GetJounrals()
+    private static ExcelPackage _workbook = null;
+    
+    private (Dictionary<string, string>, Dictionary<string, string>) GetJounrals()
     {
-        if (_journals == null || _journals.Count == 0)
+        if (_ShortJournalTitles == null || _ShortJournalTitles.Count == 0)
         {
-            var file = File.ReadAllLines(Directory.GetCurrentDirectory() + "/PN_Journal_IDs.csv");
-            var listOFJournals = new Dictionary<string, string>();
-            foreach (var line in file)
+            if (_workbook == null)
             {
-                var text = line.Split(',');
-                if (!listOFJournals.ContainsKey(text[0])) listOFJournals.Add(text[0], text[1]);
+
+                var path = Path.Combine(Directory.GetCurrentDirectory(), "PN_Journal_IDs.xlsx");
+                _workbook = new ExcelPackage(path);
             }
-            
-            _journals = listOFJournals;
-        }
+
+            var sheet = _workbook.Workbook.Worksheets.First();
+                var rows = sheet.Dimension.Rows;
+                var listOFShortJournals = new Dictionary<string, string>();
+                var listOFLongJournals = new Dictionary<string, string>();
+                for (int i =1; i<=rows;i++)
+                {
+                    var number = Convert.ToString(sheet.Cells[i,1].Value);
+                    var longTitle = (string) sheet.Cells[i, 2].Value;
+                    var shortTitle = (string) sheet.Cells[i, 3].Value;
+                    
+                    if (!listOFShortJournals.ContainsValue(number) && !listOFShortJournals.ContainsKey(shortTitle))
+                    {
+                        listOFShortJournals.Add(shortTitle, number);
+                    }
+
+                    if (!listOFLongJournals.ContainsValue(number) && !listOFLongJournals.ContainsKey(longTitle))
+                    {
+                        listOFLongJournals.Add(longTitle, longTitle);
+                    }
+                }
+
+                _ShortJournalTitles = listOFShortJournals;
+                _LongJournalTitles = listOFLongJournals;
+            } 
         
-        return _journals;
+        return (_ShortJournalTitles, _LongJournalTitles);
     }
 
     private string GetJournalID(string journal)
@@ -145,17 +174,23 @@ public class CRReviewData
                         }
                         
                         var id = "";
-                        if (journal.Contains("N.S."))
-                        {
+                        var checkText = " 3e s.";
 
-                            var shortName = journal.Replace(" N.S.", "").Trim();
-                            if(listOFJournals.Any(x => x.Key == journal))
-                                id = listOFJournals[journal];
-                            else if (listOFJournals.Any(x => x.Key == shortName))
-                                id = listOFJournals[shortName];
-                        }
+
+                        if (journal.Contains(" 3e s.")) id = GetJournalIDWithCheckText(" 3e s.", journal);
+                        else if(journal.Contains(" 4e s.")) id = GetJournalIDWithCheckText(" 4e s.", journal);
+                        else if(journal.Contains("N.S.")) id = GetJournalIDWithCheckText("N.S.", journal);
                         else
-                            id = listOFJournals[journal];
+                        {
+                            id = JournalInJournalList(journal);
+                            if (string.IsNullOrEmpty(id))
+                            {
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.WriteLine($"ERROR Could not find journal: {journal}");
+                                logger?.Log($"ERROR Could not find journal: {journal}");
+                                Console.ResetColor();
+                            }
+                        }
 
                         
                         logger.LogProcessingInfo($"\tFound ID {id}.");
@@ -196,6 +231,36 @@ public class CRReviewData
         throw new NotImplementedException();
     }
 
+    private string? JournalInJournalList(string journal)
+    {
+        if (_ShortJournalTitles.Any(x => x.Key == journal))
+        {
+            return _ShortJournalTitles[journal];
+        }
+            
+        if (_LongJournalTitles.Any(x => x.Key == journal))
+        {
+            return _LongJournalTitles[journal];
+        }
+
+        return null;
+    }
+    
+    private string? GetJournalIDWithCheckText(string checkText, string journal)
+    {
+        if (journal.Contains(checkText))
+        {
+            var jTitle = JournalInJournalList(journal);
+            if (jTitle == null) return jTitle;
+            
+            
+            var shortName = journal.Replace(checkText, "").Trim();
+            return  JournalInJournalList(shortName);
+        }
+
+        return null;
+    }
+    
     public static int NOJOURNALMATCH = 0;
     
     public override string ToString()
@@ -234,17 +299,23 @@ public class CRReviewData
                    <idno type="pi">{IDNumber}</idno>
                    <seg type="original" subtype="cr" resp="#BP">{CRData.Trim()}</seg>
                    """);
-        sb.Append("\n");        
-        
-                sb.Append(internetLink != "[NONE]" ? 
-                    $"""
-                     <ptr target="{internetLink}"/>
-                     </bibl>
-                     """ : $"""
-                </bibl>
-                """
-                );
+        sb.Append("\n");
 
-            return sb.ToString();
+        if (internetLink != "NO LINK" || internetLink.Contains("http://"))
+        {
+            sb.Append($"""
+                       <ptr target="{internetLink}"/>
+                       </bibl>
+                       """);
+        }
+        else
+        {
+ 
+            sb.Append($"""
+                       </bibl>
+                       """);           
+        }
+        
+        return sb.ToString();
     }
 }
