@@ -370,8 +370,6 @@ public class PapryiCRCheckerCore
                 reviewWithoutName = reviewWithoutName.Replace(journalNumberMatch.Value, "");
             }
             
-            if(reviewWithoutName.Contains(")")) reviewWithoutName = reviewWithoutName.Split(")")[0].Trim();
-            if(reviewWithoutName.EndsWith(",")) reviewWithoutName.Remove(reviewWithoutName.Length - 1);
 
             var link = "NO LINK";
             
@@ -389,6 +387,8 @@ public class PapryiCRCheckerCore
                 }
             }
 
+            if(reviewWithoutName.Contains(")")) reviewWithoutName = reviewWithoutName.Split(")")[0].Trim();
+            if(reviewWithoutName.EndsWith(",")) reviewWithoutName.Remove(reviewWithoutName.Length - 1);
 
             var squareDateRegex = new Regex(@"\[\d{4}\]");
             var squareDateMatch = squareDateRegex.Match(reviewWithoutName);
