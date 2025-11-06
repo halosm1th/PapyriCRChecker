@@ -342,6 +342,24 @@ public class PapryiCRCheckerCore
             var journalNumber = "";
             var reviewWithoutName = review.Replace($"{name},", "");
             
+            
+
+            var link = "NO LINK";
+            
+            if (reviewWithoutName.Contains("http://") || reviewWithoutName.Contains("https://"))
+            {
+                var urlMatch = Regex.Match(reviewWithoutName, @"\s*(https?://[^\s>]+)\s*");
+                if (urlMatch.Success)
+                {
+                    link = urlMatch.Groups[1].Value.Trim();
+                    reviewWithoutName = reviewWithoutName.Replace($"{urlMatch.Value}", "");
+                    if(reviewWithoutName.Contains(" <")) reviewWithoutName = reviewWithoutName.Split(" <")[0].Trim();
+
+                    //if (link.Contains("rosetta.org")) link = link.Replace("rosetta.org", "jbtc.org");
+                    
+                }
+            }
+            
             var pageMatchRegex = new Regex(@"(pp\. |p\. )\d+(-\d+)?");
             var pagesMatch = pageMatchRegex.Match(reviewWithoutName);
             if (pagesMatch.Success)
@@ -368,23 +386,6 @@ public class PapryiCRCheckerCore
                 journalNumber = journalNumberMatch.Value;
                 journalNumber = journalNumber.Replace("(", "");
                 reviewWithoutName = reviewWithoutName.Replace(journalNumberMatch.Value, "");
-            }
-            
-
-            var link = "NO LINK";
-            
-            if (reviewWithoutName.Contains("http://") || reviewWithoutName.Contains("https://"))
-            {
-                var urlMatch = Regex.Match(reviewWithoutName, @"\s*(https?://[^\s>]+)\s*");
-                if (urlMatch.Success)
-                {
-                    link = urlMatch.Groups[1].Value.Trim();
-                    reviewWithoutName = reviewWithoutName.Replace($"{urlMatch.Value}", "");
-                    if(reviewWithoutName.Contains(" <")) reviewWithoutName = reviewWithoutName.Split(" <")[0].Trim();
-
-                    //if (link.Contains("rosetta.org")) link = link.Replace("rosetta.org", "jbtc.org");
-                    
-                }
             }
 
             if(reviewWithoutName.Contains(")")) reviewWithoutName = reviewWithoutName.Split(")")[0].Trim();
