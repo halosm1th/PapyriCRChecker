@@ -301,7 +301,7 @@ public class CRReviewData
                    """);
         sb.Append("\n");
 
-        if (internetLink != "[NONE]" || internetLink.Contains("http://"))
+        if (internetLink != "NO LINK" || internetLink.Contains("http://"))
         {
             sb.Append($"""
                        <ptr target="{internetLink}"/>
