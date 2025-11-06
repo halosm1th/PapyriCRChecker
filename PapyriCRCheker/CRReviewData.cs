@@ -102,14 +102,20 @@ public class CRReviewData
         }
     }
 
+    private static ExcelPackage _workbook = null;
+    
     private (Dictionary<string, string>, Dictionary<string, string>) GetJounrals()
     {
         if (_ShortJournalTitles == null || _ShortJournalTitles.Count == 0)
         {
-            var path = Path.Combine(Directory.GetCurrentDirectory(), "PN_Journal_IDs.xlsx");
-            using (var workbook = new ExcelPackage(path))
+            if (_workbook == null)
             {
-                var sheet = workbook.Workbook.Worksheets.First();
+
+                var path = Path.Combine(Directory.GetCurrentDirectory(), "PN_Journal_IDs.xlsx");
+                _workbook = new ExcelPackage(path);
+            }
+
+            var sheet = _workbook.Workbook.Worksheets.First();
                 var rows = sheet.Dimension.Rows;
                 var listOFShortJournals = new Dictionary<string, string>();
                 var listOFLongJournals = new Dictionary<string, string>();
@@ -133,7 +139,7 @@ public class CRReviewData
                 _ShortJournalTitles = listOFShortJournals;
                 _LongJournalTitles = listOFLongJournals;
             } 
-        }
+        
         return (_ShortJournalTitles, _LongJournalTitles);
     }
 
