@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using DefaultNamespace;
+using OfficeOpenXml;
 
 namespace BPtoPNDataCompiler;
 
@@ -105,23 +106,34 @@ public class CRReviewData
     {
         if (_ShortJournalTitles == null || _ShortJournalTitles.Count == 0)
         {
-            var file = File.ReadAllLines(Directory.GetCurrentDirectory() + "/PN_Journal_IDs.csv");
-            var listOFShortJournals = new Dictionary<string, string>();
-            var listOFLongJournals = new Dictionary<string, string>();
-            foreach (var line in file)
+            var path = Path.Combine(Directory.GetCurrentDirectory(), "PN_Journal_IDs.xlsx");
+            using (var workbook = new ExcelPackage(path))
             {
-                var text = line.Split(',');
-                if (!listOFShortJournals.ContainsKey(text[0]))
+                var sheet = workbook.Workbook.Worksheets.First();
+                var rows = sheet.Dimension.Rows;
+                var listOFShortJournals = new Dictionary<string, string>();
+                var listOFLongJournals = new Dictionary<string, string>();
+                for (int i =1; i<=rows;i++)
                 {
-                    listOFShortJournals.Add(text[0], text[2]);
-                    listOFLongJournals.Add(text[0], text[1]);
+                    var number = Convert.ToString(sheet.Cells[i,1].Value);
+                    var longTitle = (string) sheet.Cells[i, 2].Value;
+                    var shortTitle = (string) sheet.Cells[i, 3].Value;
+                    
+                    if (!listOFShortJournals.ContainsValue(number) && !listOFShortJournals.ContainsKey(shortTitle))
+                    {
+                        listOFShortJournals.Add(shortTitle, number);
+                    }
+
+                    if (!listOFLongJournals.ContainsValue(number) && !listOFLongJournals.ContainsKey(longTitle))
+                    {
+                        listOFLongJournals.Add(longTitle, longTitle);
+                    }
                 }
-            }
-            
-            _ShortJournalTitles = listOFShortJournals;
-            _LongJournalTitles = listOFLongJournals;
+
+                _ShortJournalTitles = listOFShortJournals;
+                _LongJournalTitles = listOFLongJournals;
+            } 
         }
-        
         return (_ShortJournalTitles, _LongJournalTitles);
     }
 
@@ -233,7 +245,7 @@ public class CRReviewData
         if (journal.Contains(checkText))
         {
             var jTitle = JournalInJournalList(journal);
-            if (jTitle != null) return jTitle;
+            if (jTitle == null) return jTitle;
             
             
             var shortName = journal.Replace(checkText, "").Trim();
