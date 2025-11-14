@@ -22,6 +22,8 @@ public class CRReviewData
     public string Name { get; } = "[NONE]";
     public string Forename { get; } = "[NONE]";
     public string Lastname { get; } = "[NONE]";
+
+    public bool HasMatched { get; set; } = false;
     
     
     public string Issue { get; } = "[NONE]";

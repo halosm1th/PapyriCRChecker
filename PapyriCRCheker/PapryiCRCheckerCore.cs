@@ -330,7 +330,28 @@ public class PapryiCRCheckerCore
         var parsedReviews = new List<CRReviewData>();
         
         text = text.Replace("C.R. par ", "");
-        text = text.Replace("C.R. ", ""); 
+        text = text.Replace("C.R. ", "");
+
+        // chatGPT regexing to remove the square braces
+        string protectedText = Regex.Replace(
+            text,
+            @"(\([^()]*\d[^()]*?)\[([^\[\]]+)\](?=[^()]*\))",
+            m => m.Groups[1].Value + "«" + m.Groups[2].Value + "»",
+            RegexOptions.Singleline
+        );
+
+        // Step 2: Remove all other [ ... ]
+        string cleaned = Regex.Replace(
+            protectedText,
+            @"\[[^\[\]]*\]",
+            "",
+            RegexOptions.Singleline
+        );
+
+        // Step 3: Restore the protected brackets
+        text = cleaned.Replace('«', '[').Replace('»', ']');
+        
+        
         var crReviews = text.Split(" - ");
 
         foreach (var review in crReviews)
@@ -522,7 +543,7 @@ public class PapryiCRCheckerCore
         return filesToCheck;
     }
 
-    public void SaveCrReviewsInXML(CRReviewData cr, ref string currentMaxXmlid, string xmlDir)
+    public bool SaveCrReviewsInXML(CRReviewData cr, ref string currentMaxXmlid, string xmlDir)
     {
         if (!Int32.TryParse(currentMaxXmlid, out int currentMax))
         {
@@ -555,7 +576,10 @@ public class PapryiCRCheckerCore
             
             logger.LogProcessingInfo($"created new xml file: {xmlDir}");
             File.WriteAllText(xmlDir, cr.ToString());
+            return true;
         }
+
+        return false;
     }
 
     public void SavePNReviewsToSendToBP(ParsedXMLReview pn, string pathForCRUpdateFile)
@@ -597,8 +621,26 @@ public class PapryiCRCheckerCore
         
                 foreach (var CR in reviewsToSave.Value.Item2)
                 {
-            
-                    SaveCrReviewsInXML(CR, ref currentMaxXMLID, saveXmlDir);
+
+                    if (!CR.HasMatched)
+                    {
+                        var resultMatched = SaveCrReviewsInXML(CR, ref currentMaxXMLID, saveXmlDir);
+                        CR.HasMatched = resultMatched;
+
+                        if (resultMatched)
+                        {
+                            foreach (var value in reviewsToSave.Value.Item2.Where(x => x.HasMatched == false))
+                            {
+                                if (value.JournalID == CR.JournalID
+                                    && value.Issue == CR.Issue
+                                    && value.Name == CR.Name
+                                    && value.PageRange == CR.PageRange)
+                                {
+                                    value.HasMatched = true;
+                                }
+                            }
+                        }
+                    }
                 }
 
             }
