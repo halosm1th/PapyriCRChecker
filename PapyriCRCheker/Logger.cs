@@ -37,6 +37,7 @@ public class Logger
         CreateLogWriter("general");
         CreateLogWriter("processing");
         CreateLogWriter("errors");
+        CreateLogWriter("JournalNotFound");
     }
 
     private void CreateLogWriter(string logType)
@@ -74,6 +75,11 @@ public class Logger
             LogLevel.Error => ConsoleColor.Red,
             _ => ConsoleColor.White
         };
+    }
+    
+    public void LogMissingJournalInfo(string message)
+    {
+        Log(message, LogLevel.Info, "JournalNotFound");
     }
 
     public void LogProcessingInfo(string message)

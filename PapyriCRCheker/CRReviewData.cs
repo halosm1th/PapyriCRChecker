@@ -50,9 +50,9 @@ public class CRReviewData
         Date = year;
         ArticleNumberCrIsReviewing = articleNumberCRReviewing;
         JournalName = journalName;
-        JournalID = GetJournalID(journalName);
         Name = name;
         CRData = baseText;
+        JournalID = GetJournalID(journalName);
         
         var amperMatch = Regex.Match(CRData, ".&.");
         if (amperMatch.Success && !CRData.Contains("&amp;"))
@@ -190,6 +190,7 @@ public class CRReviewData
                                 Console.ForegroundColor = ConsoleColor.Red;
                                 Console.WriteLine($"ERROR Could not find journal: {journal}");
                                 logger?.Log($"ERROR Could not find journal: {journal}");
+                                logger.LogMissingJournalInfo($"Coudl not find journal: {journal}. From file {Source.PNNumber} with text {CRData}.");
                                 Console.ResetColor();
                             }
                         }
